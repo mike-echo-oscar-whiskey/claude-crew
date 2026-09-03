@@ -68,9 +68,8 @@ Set in each persona's frontmatter (`model:`), by kind of work rather than by rol
 
 | Kind of work | Model | Roles |
 |---|---|---|
-| Judgment and design; output becomes a contract for others | `fable` | product-owner, architect, security-engineer, event-sourcing, genai, agentic-ai, multitenancy, commercial-analyst, privacy-and-compliance |
-| Implementation against a design and tests | `opus` | frontend, backend, integration, cloud, qa-engineer, ux-designer |
-| Mechanical writing with a narrow contract | `sonnet` | technical-writer |
+| Judgment and design; output becomes a contract for others | `fable` | product-owner, architect, security-engineer, qa-engineer, event-sourcing, genai, agentic-ai, multitenancy, commercial-analyst, privacy-and-compliance |
+| Implementation against a design and tests | `opus` | frontend, backend, integration, cloud, ux-designer, technical-writer |
 
 Tune after measuring; `effort:` is a separate lever (a cheaper model at high effort often beats
 a stronger one at low effort for reviews).
