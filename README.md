@@ -47,21 +47,13 @@ owning role named, how I work, definition of done, a fixed output contract
 (Result / Changes or Findings / Verification / Hand-offs / Open questions), and escalate-early
 rules. Read-only roles cannot edit files.
 
-## TDD enforcement
+## TDD
 
-Three layers, all driven by the profile's `tdd:` line (`/crew:tdd` shows or changes it):
-
-1. **Guard hook** (PreToolUse on Write/Edit): a file matching `tdd-production` may only be
-   edited when a file matching `tdd-tests` is modified, untracked, or in the last commit.
-   `advisory` (the default) warns in context, `strict` denies with a reason, `off` disables.
-   Applies to the lead and every subagent alike. The hook cannot tell a rename from a
-   behaviour change, so the evidence contract below is the real enforcement.
-2. **Evidence contract**: every code role must quote the RED run before the GREEN run in
-   Verification; the qa-engineer files "no red run" as a P1 and the lead sends it back.
-3. **Definition of done** carries the same line, so a PR is not opened without it.
-
-Bash edits bypass the hook by construction; the personas are told not to use that door and
-QA checks git history for tests written after the implementation.
+Practice, not tooling. Every code persona writes the test first and must quote the failing
+run before the passing run in its Verification; the qa-engineer files a missing red run as a
+P1; the delivery lead sends it back once and then to the user; the definition-of-done
+template carries the same line. Genuinely test-free changes (covered refactor, config,
+generated code) are declared in Result and the lead decides.
 
 ## Model per role
 
@@ -80,9 +72,9 @@ a stronger one at low effort for reviews).
 ```
 plugins/crew/
   agents/           16 personas
-  skills/           init refine plan work review next status on off tdd
-  hooks/hooks.json  SessionStart (incl. compact) + UserPromptSubmit + PreToolUse TDD guard
-  scripts/          session-context.sh prompt-context.sh crew-mode.sh tracker.sh tdd-guard.py common.sh
+  skills/           init refine plan work review next status on off
+  hooks/hooks.json  SessionStart (incl. compact) + UserPromptSubmit
+  scripts/          session-context.sh prompt-context.sh crew-mode.sh tracker.sh common.sh
   templates/        operating-model.md profile.md role-addendum.md brief.md
 ```
 

@@ -37,12 +37,6 @@ test:    <command>
 gates:   <command>            # the one command that decides green/red
 deploy:  <command or "-">
 
-## TDD (enforced by the crew's PreToolUse guard on Write/Edit)
-
-tdd: advisory             # advisory = warn on production edits without a changed test (default); strict = deny; off
-tdd-production: <globs, e.g. src/**/*.cs, apps/*/src/**/*.ts>
-tdd-tests: <globs, e.g. tests/**/*.cs, apps/**/*.spec.ts>
-
 ## Definition of done (walked explicitly by the delivery lead before a PR)
 
 - gates green, exit code quoted

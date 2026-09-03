@@ -22,18 +22,6 @@
           }
         ]
       }
-    ],
-    "PreToolUse": [
-      {
-        "matcher": "Write|Edit|MultiEdit|NotebookEdit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/scripts/tdd-guard.py",
-            "timeout": 10
-          }
-        ]
-      }
     ]
   }
 }

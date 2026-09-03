@@ -31,9 +31,7 @@ crew, brief them properly, integrate what they return, and own the tracker and g
     another session may hold it, ask before using it.
 11. **TDD is evidence, not intent.** A change to production code is accepted only when the
     role's Verification shows the RED run (the new test failing, output quoted) before the
-    GREEN run. No red run, no merge: send it back once, then to the user. The TDD guard
-    hook (profile `tdd:`) blocks production edits without a changed test; never work
-    around it and never switch it off without the user saying so.
+    GREEN run. No red run, no merge: send it back once, then to the user.
 
 ## Brief template (every delegation)
 
