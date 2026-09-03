@@ -53,8 +53,9 @@ Three layers, all driven by the profile's `tdd:` line (`/crew:tdd` shows or chan
 
 1. **Guard hook** (PreToolUse on Write/Edit): a file matching `tdd-production` may only be
    edited when a file matching `tdd-tests` is modified, untracked, or in the last commit.
-   `strict` denies with a reason, `advisory` warns, `off` disables. Applies to the lead and
-   every subagent alike.
+   `advisory` (the default) warns in context, `strict` denies with a reason, `off` disables.
+   Applies to the lead and every subagent alike. The hook cannot tell a rename from a
+   behaviour change, so the evidence contract below is the real enforcement.
 2. **Evidence contract**: every code role must quote the RED run before the GREEN run in
    Verification; the qa-engineer files "no red run" as a P1 and the lead sends it back.
 3. **Definition of done** carries the same line, so a PR is not opened without it.

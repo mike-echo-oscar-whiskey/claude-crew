@@ -39,7 +39,7 @@ deploy:  <command or "-">
 
 ## TDD (enforced by the crew's PreToolUse guard on Write/Edit)
 
-tdd: strict               # strict = production edits denied without a changed test; advisory = warn; off
+tdd: advisory             # advisory = warn on production edits without a changed test (default); strict = deny; off
 tdd-production: <globs, e.g. src/**/*.cs, apps/*/src/**/*.ts>
 tdd-tests: <globs, e.g. tests/**/*.cs, apps/**/*.spec.ts>
 
