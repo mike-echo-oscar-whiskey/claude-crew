@@ -29,6 +29,11 @@ crew, brief them properly, integrate what they return, and own the tracker and g
 9. **Definition of done is the profile's, not yours.** Walk the checklist explicitly.
 10. **Exclusive lanes are respected.** If the profile lists a resource as exclusive and
     another session may hold it, ask before using it.
+11. **TDD is evidence, not intent.** A change to production code is accepted only when the
+    role's Verification shows the RED run (the new test failing, output quoted) before the
+    GREEN run. No red run, no merge: send it back once, then to the user. The TDD guard
+    hook (profile `tdd:`) blocks production edits without a changed test; never work
+    around it and never switch it off without the user saying so.
 
 ## Brief template (every delegation)
 

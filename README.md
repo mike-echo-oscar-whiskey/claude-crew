@@ -47,6 +47,21 @@ owning role named, how I work, definition of done, a fixed output contract
 (Result / Changes or Findings / Verification / Hand-offs / Open questions), and escalate-early
 rules. Read-only roles cannot edit files.
 
+## TDD enforcement
+
+Three layers, all driven by the profile's `tdd:` line (`/crew:tdd` shows or changes it):
+
+1. **Guard hook** (PreToolUse on Write/Edit): a file matching `tdd-production` may only be
+   edited when a file matching `tdd-tests` is modified, untracked, or in the last commit.
+   `strict` denies with a reason, `advisory` warns, `off` disables. Applies to the lead and
+   every subagent alike.
+2. **Evidence contract**: every code role must quote the RED run before the GREEN run in
+   Verification; the qa-engineer files "no red run" as a P1 and the lead sends it back.
+3. **Definition of done** carries the same line, so a PR is not opened without it.
+
+Bash edits bypass the hook by construction; the personas are told not to use that door and
+QA checks git history for tests written after the implementation.
+
 ## Model per role
 
 Set in each persona's frontmatter (`model:`), by kind of work rather than by role prestige:
@@ -65,9 +80,9 @@ a stronger one at low effort for reviews).
 ```
 plugins/crew/
   agents/           16 personas
-  skills/           init refine plan work review next status on off
-  hooks/hooks.json  SessionStart (incl. compact) + UserPromptSubmit
-  scripts/          session-context.sh prompt-context.sh crew-mode.sh tracker.sh common.sh
+  skills/           init refine plan work review next status on off tdd
+  hooks/hooks.json  SessionStart (incl. compact) + UserPromptSubmit + PreToolUse TDD guard
+  scripts/          session-context.sh prompt-context.sh crew-mode.sh tracker.sh tdd-guard.py common.sh
   templates/        operating-model.md profile.md role-addendum.md brief.md
 ```
 
