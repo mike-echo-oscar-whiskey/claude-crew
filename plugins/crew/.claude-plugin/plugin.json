@@ -1,0 +1,7 @@
+{
+  "name": "crew",
+  "version": "0.1.0",
+  "description": "Delivery lead operating model, 16 scoped specialist agents, /crew:* pipeline skills (refine, plan, work, review, next, status), a GitHub tracker adapter and crew-mode hooks. Stack specifics come from the project's .claude/crew/profile.md.",
+  "author": { "name": "Kris Kater" },
+  "keywords": ["agents", "workflow", "product-owner", "architect", "tdd", "multi-session"]
+}

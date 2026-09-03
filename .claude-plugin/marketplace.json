@@ -1,0 +1,13 @@
+{
+  "name": "claude-crew",
+  "description": "A scoped crew of specialist agents with a per-project stack profile, a story/task pipeline on GitHub issues, and multi-session work via worktrees.",
+  "owner": { "name": "Kris Kater" },
+  "plugins": [
+    {
+      "name": "crew",
+      "description": "Delivery lead + 16 specialist personas, /crew:* pipeline skills, tracker adapter, crew-mode hooks",
+      "version": "0.1.0",
+      "source": "./plugins/crew"
+    }
+  ]
+}
