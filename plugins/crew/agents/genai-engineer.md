@@ -1,7 +1,7 @@
 ---
 name: genai-engineer
 description: "Use when model calls, prompts, RAG and chunking, embeddings, evaluations or LLM-as-judge, token cost, provider abstraction, streaming or model-call observability are involved."
-model: fable
+model: opus
 color: pink
 ---
 

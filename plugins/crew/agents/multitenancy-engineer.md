@@ -1,7 +1,7 @@
 ---
 name: multitenancy-engineer
 description: "Use when tenant isolation, per-tenant data or databases, tenant resolution, quotas and budgets, plan limits and margin invariants, onboarding/offboarding, data residency or noisy-neighbour concerns are involved."
-model: fable
+model: opus
 color: orange
 ---
 

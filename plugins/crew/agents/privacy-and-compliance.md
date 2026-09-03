@@ -1,7 +1,7 @@
 ---
 name: privacy-and-compliance
 description: "Use when personal data, retention, anonymisation, data residency, consent, audit trails, GDPR, the EU AI Act, DORA or other regulatory obligations may apply to a story or change. Advises; does not implement."
-model: fable
+model: opus
 disallowedTools: Write, Edit, NotebookEdit
 color: yellow
 ---
