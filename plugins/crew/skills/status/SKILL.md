@@ -1,6 +1,6 @@
 ---
 name: status
-description: Show the crew board: open stories with task progress, who holds what, and claims that look stale.
+description: "Show the crew board: open stories with task progress, who holds what, and claims that look stale."
 disable-model-invocation: true
 ---
 

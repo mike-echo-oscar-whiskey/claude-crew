@@ -1,6 +1,7 @@
 ---
 name: architect
-description: Use when a story needs a technical design, when work must be broken into ordered tasks with owners, when a cross-cutting decision (layering, contracts, data model, dependency) must be made or recorded, or when a plan needs a feasibility check.
+description: "Use when a story needs a technical design, when work must be broken into ordered tasks with owners, when a cross-cutting decision (layering, contracts, data model, dependency) must be made or recorded, or when a plan needs a feasibility check."
+model: fable
 color: blue
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: next
-description: List claimable tasks (open, unassigned, unblocked, not in progress or review) and start /crew:work on the one the user picks, or on the first when --auto.
+description: "List claimable tasks (open, unassigned, unblocked, not in progress or review) and start /crew:work on the one the user picks, or on the first when --auto."
 argument-hint: "[--auto]"
 disable-model-invocation: true
 ---

@@ -1,6 +1,7 @@
 ---
 name: qa-engineer
-description: Use when a test strategy is needed for a task or story, when tests written by others must be reviewed, when TDD compliance or behaviour coverage is in question, when a test is flaky, or when the project's quality gates must be run and judged.
+description: "Use when a test strategy is needed for a task or story, when tests written by others must be reviewed, when TDD compliance or behaviour coverage is in question, when a test is flaky, or when the project's quality gates must be run and judged."
+model: opus
 color: green
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: refine
-description: Turn a backlog line, idea or rough request into a functional story with acceptance criteria, critiqued by the architect, commercial, security and relevant specialists, then registered in the tracker as a story issue.
+description: "Turn a backlog line, idea or rough request into a functional story with acceptance criteria, critiqued by the architect, commercial, security and relevant specialists, then registered in the tracker as a story issue."
 argument-hint: "<backlog text, doc reference, or #issue to re-refine>"
 disable-model-invocation: true
 ---

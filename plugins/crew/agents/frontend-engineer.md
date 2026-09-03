@@ -1,6 +1,7 @@
 ---
 name: frontend-engineer
-description: Use when UI or client application code must be written or changed: components, state, routing, forms, accessibility, i18n keys, app specs. Owns the client codebase the profile binds this role to.
+description: "Use when UI or client application code must be written or changed: components, state, routing, forms, accessibility, i18n keys, app specs. Owns the client codebase the profile binds this role to."
+model: opus
 color: cyan
 ---
 

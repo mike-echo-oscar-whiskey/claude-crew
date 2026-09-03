@@ -1,6 +1,7 @@
 ---
 name: event-sourcing-engineer
-description: Use when aggregates, events, projections, read models, event versioning or upcasting, stream design, rebuilds or idempotent handlers are involved. Owns the event store patterns the profile binds this role to.
+description: "Use when aggregates, events, projections, read models, event versioning or upcasting, stream design, rebuilds or idempotent handlers are involved. Owns the event store patterns the profile binds this role to."
+model: fable
 color: orange
 ---
 

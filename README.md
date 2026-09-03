@@ -49,10 +49,16 @@ rules. Read-only roles cannot edit files.
 
 ## Model per role
 
-All personas inherit the session model by default. Tune per role with the `model:` /
-`effort:` frontmatter fields after measuring: judgment roles (product-owner, architect,
-security, the domain specialists) on the strongest model; implementers one step down;
-reviewers with a narrow contract cheaper; `status`/`next` mechanical.
+Set in each persona's frontmatter (`model:`), by kind of work rather than by role prestige:
+
+| Kind of work | Model | Roles |
+|---|---|---|
+| Judgment and design; output becomes a contract for others | `fable` | product-owner, architect, security-engineer, event-sourcing, genai, agentic-ai, multitenancy, commercial-analyst, privacy-and-compliance |
+| Implementation against a design and tests | `opus` | frontend, backend, integration, cloud, qa-engineer, ux-designer |
+| Mechanical writing with a narrow contract | `sonnet` | technical-writer |
+
+Tune after measuring; `effort:` is a separate lever (a cheaper model at high effort often beats
+a stronger one at low effort for reviews).
 
 ## Layout
 

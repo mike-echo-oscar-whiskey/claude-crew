@@ -1,6 +1,7 @@
 ---
 name: security-engineer
-description: Use when a story or change touches authentication, authorization, tenant boundaries, secrets, outbound network calls, untrusted input including model output and retrieved documents, dependencies, or when a threat model or security review of a PR is needed.
+description: "Use when a story or change touches authentication, authorization, tenant boundaries, secrets, outbound network calls, untrusted input including model output and retrieved documents, dependencies, or when a threat model or security review of a PR is needed."
+model: fable
 disallowedTools: Write, Edit, NotebookEdit
 color: red
 ---

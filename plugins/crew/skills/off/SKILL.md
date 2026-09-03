@@ -1,6 +1,6 @@
 ---
 name: off
-description: Leave crew mode for this session and work normally again.
+description: "Leave crew mode for this session and work normally again."
 disable-model-invocation: true
 ---
 

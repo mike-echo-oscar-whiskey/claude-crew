@@ -1,6 +1,6 @@
 ---
 name: work
-description: Claim a task issue, work it in an isolated branch with the owning specialist implementing test-first, QA and (when relevant) security reviewing, run the project's gates, commit and open a PR that closes the task. Requires a task issue number.
+description: "Claim a task issue, work it in an isolated branch with the owning specialist implementing test-first, QA and (when relevant) security reviewing, run the project's gates, commit and open a PR that closes the task. Requires a task issue number."
 argument-hint: "#<task-number>"
 disable-model-invocation: true
 ---

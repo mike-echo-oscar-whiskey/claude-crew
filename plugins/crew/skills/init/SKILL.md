@@ -1,6 +1,6 @@
 ---
 name: init
-description: Create or refresh this project's crew profile (.claude/crew/profile.md) by scanning the repo and asking for what cannot be inferred; ensures tracker labels and a CLAUDE.md pointer. Run once per project.
+description: "Create or refresh this project's crew profile (.claude/crew/profile.md) by scanning the repo and asking for what cannot be inferred; ensures tracker labels and a CLAUDE.md pointer. Run once per project."
 argument-hint: "[--refresh]"
 disable-model-invocation: true
 ---

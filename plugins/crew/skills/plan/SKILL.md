@@ -1,6 +1,6 @@
 ---
 name: plan
-description: Produce the technical design for a story and break it into ordered, role-labelled task issues with dependencies; specialists sanity-check their own tasks. Requires a story issue number.
+description: "Produce the technical design for a story and break it into ordered, role-labelled task issues with dependencies; specialists sanity-check their own tasks. Requires a story issue number."
 argument-hint: "#<story-number>"
 disable-model-invocation: true
 ---

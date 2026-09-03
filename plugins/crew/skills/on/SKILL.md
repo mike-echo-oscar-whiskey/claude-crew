@@ -1,6 +1,6 @@
 ---
 name: on
-description: Switch this session into crew mode: you become the delivery lead and route every prompt through the crew until /crew:off.
+description: "Switch this session into crew mode: you become the delivery lead and route every prompt through the crew until /crew:off."
 disable-model-invocation: true
 ---
 

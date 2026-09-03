@@ -1,6 +1,6 @@
 ---
 name: review
-description: Review a pull request with the crew in parallel (architect, QA, security, the owning specialist), deduplicate findings and post one review. Accepts a PR number or branch.
+description: "Review a pull request with the crew in parallel (architect, QA, security, the owning specialist), deduplicate findings and post one review. Accepts a PR number or branch."
 argument-hint: "<pr-number|branch>"
 disable-model-invocation: true
 ---

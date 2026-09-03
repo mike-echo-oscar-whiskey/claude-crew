@@ -1,6 +1,7 @@
 ---
 name: cloud-engineer
-description: Use when infrastructure, cluster or deployment changes are involved: IaC, Kubernetes charts, IAM and identities, networking and DNS, model-provider quotas and hosting, observability stack, cost of infrastructure, deploy and reset scripts.
+description: "Use when infrastructure, cluster or deployment changes are involved: IaC, Kubernetes charts, IAM and identities, networking and DNS, model-provider quotas and hosting, observability stack, cost of infrastructure, deploy and reset scripts."
+model: opus
 color: blue
 ---
 

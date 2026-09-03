@@ -1,6 +1,7 @@
 ---
 name: integration-engineer
-description: Use when an API contract changes or is added, when generated clients must be regenerated, when a webhook, message boundary, external API, CLI parity or MCP/A2A surface is involved, or when a breaking-change baseline must be judged.
+description: "Use when an API contract changes or is added, when generated clients must be regenerated, when a webhook, message boundary, external API, CLI parity or MCP/A2A surface is involved, or when a breaking-change baseline must be judged."
+model: opus
 color: purple
 ---
 

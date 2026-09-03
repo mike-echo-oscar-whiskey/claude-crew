@@ -1,6 +1,7 @@
 ---
 name: agentic-ai-engineer
-description: Use when agent runtimes, tool and toolset design, multi-step orchestration, permission boundaries for tools, sandboxing of generated code, or MCP and A2A protocol surfaces are involved.
+description: "Use when agent runtimes, tool and toolset design, multi-step orchestration, permission boundaries for tools, sandboxing of generated code, or MCP and A2A protocol surfaces are involved."
+model: fable
 color: pink
 ---
 

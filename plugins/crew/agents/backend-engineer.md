@@ -1,6 +1,7 @@
 ---
 name: backend-engineer
-description: Use when server-side code must be written or changed: endpoints, domain logic, services, background handlers, persistence access, unit and integration tests. Owns the server codebase the profile binds this role to.
+description: "Use when server-side code must be written or changed: endpoints, domain logic, services, background handlers, persistence access, unit and integration tests. Owns the server codebase the profile binds this role to."
+model: opus
 color: blue
 ---
 

@@ -1,6 +1,7 @@
 ---
 name: ux-designer
-description: Use when a screen, flow, interaction, empty or error state, copy, information architecture or visual consistency must be designed or judged before or after implementation. Decides what the interface should be; does not implement it.
+description: "Use when a screen, flow, interaction, empty or error state, copy, information architecture or visual consistency must be designed or judged before or after implementation. Decides what the interface should be; does not implement it."
+model: opus
 disallowedTools: Write, Edit, NotebookEdit
 color: purple
 ---
