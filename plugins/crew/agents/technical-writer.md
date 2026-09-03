@@ -1,7 +1,7 @@
 ---
 name: technical-writer
 description: "Use when the README, product docs, design documents, dashboards descriptions, CLI help text or changelog must be written or checked against what the code actually does, including the definition-of-done items that say docs must track reality."
-model: sonnet
+model: opus
 color: green
 ---
 
