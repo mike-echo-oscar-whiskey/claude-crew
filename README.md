@@ -61,8 +61,14 @@ Set in each persona's frontmatter (`model:`), by kind of work rather than by rol
 
 | Kind of work | Model | Roles |
 |---|---|---|
-| Judgment and design; output becomes a contract for others | `fable` | product-owner, architect, security-engineer, qa-engineer, event-sourcing, genai, agentic-ai, multitenancy, commercial-analyst, privacy-and-compliance |
-| Implementation against a design and tests | `opus` | frontend, backend, integration, cloud, ux-designer, technical-writer |
+| Design, implementation, review and security; output becomes a contract or a verdict for others | `opus` | architect, backend, frontend, integration, cloud, event-sourcing, genai, agentic-ai, multitenancy, qa-engineer, security-engineer, ux-designer |
+| Reading, checking and writing inside a fully bounded brief | `sonnet` | product-owner, technical-writer, commercial-analyst, privacy-and-compliance |
+
+No persona is pinned to `fable`. The delivery-lead session runs on it; a frontmatter pin fails hard
+when the allowance runs out (every pipeline step stops with a 429 instead of degrading, seen
+2026-09-04), and the allowance burns in the many specialist runs, not in the one lead context. When
+a single review needs the depth — a mutation review of a guard, a security review of an exposure
+decision — the lead passes `model` on that Agent call and says so in the brief.
 
 Tune after measuring; `effort:` is a separate lever (a cheaper model at high effort often beats
 a stronger one at low effort for reviews).

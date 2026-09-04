@@ -1,7 +1,7 @@
 ---
 name: product-owner
 description: "Use when a backlog item, idea or request must become a functional story with acceptance criteria, when scope must be cut or clarified, or when the backlog needs grooming. Writes the WHAT and WHY; never the HOW."
-model: opus
+model: sonnet
 disallowedTools: Write, Edit, NotebookEdit
 color: green
 ---
