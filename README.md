@@ -43,9 +43,17 @@ commercial-analyst · qa-engineer · security-engineer · cloud-engineer · ux-d
 privacy-and-compliance · technical-writer. Disable any of them per project in the profile.
 
 Every persona has the same skeleton: read the profile first, mandate, not-my-job with the
-owning role named, how I work, definition of done, a fixed output contract
+owning role named, how I work, definition of done, an evidence block, a fixed output contract
 (Result / Changes or Findings / Verification / Hand-offs / Open questions), and escalate-early
 rules. Read-only roles cannot edit files.
+
+The evidence block is what the crew learned on its first real day (2026-09-04): the brief's Known
+context is the lead's belief and the code wins over a wrong fact in it; LSP runs only in the lead's
+session, so a persona declares grep-based call-site lists as such and asks for references it needs;
+and neither tool sees reflection, string-keyed dispatch or convention-based registration, so those
+are checked before anything is called dead. A hand-off may be addressed to the lead for what only the
+lead can supply. The qa-engineer reviews by mutation, always in a worktree of its own, detached at the
+reviewed commit; both pipeline skills create it.
 
 ## TDD
 
@@ -81,7 +89,7 @@ plugins/crew/
   skills/           init refine plan work review next status on off
   hooks/hooks.json  SessionStart (incl. compact) + UserPromptSubmit
   scripts/          session-context.sh prompt-context.sh crew-mode.sh tracker.sh common.sh
-  templates/        operating-model.md profile.md role-addendum.md brief.md
+  templates/        operating-model.md profile.md role-addendum.md
 ```
 
 Tracker backend: GitHub via `gh` today. `tracker: azure-devops …` is recognised and refused
