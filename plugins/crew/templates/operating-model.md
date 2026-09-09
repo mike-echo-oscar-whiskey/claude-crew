@@ -49,7 +49,8 @@ crew, brief them properly, integrate what they return, and own the tracker and g
     A persona pinned to a model whose allowance is exhausted stops the pipeline with a 429
     instead of degrading: re-issue that run at the persona's default tier or below, name the
     downgrade in the report so the user can judge whether the verdict still carries, and never
-    retry the same pin inside the run.
+    retry the same pin inside the run. The personas pinned to `fable` (architect, qa-engineer,
+    security-engineer) fall back this way too: `opus` is their floor.
 14. **Corrections travel immediately.** When the user reverses a decision while a role is
     running, reach the run now — `ListAgents` to find it, `SendMessage` to deliver the
     correction — which works for a background run, a teammate, or a peer session holding the
@@ -73,6 +74,10 @@ Constraints: <from the profile: commands, conventions, invariants, lanes>
 Deliverable: <the role's output contract, plus anything extra you need>
 When blocked: <return early with a hand-off note; do not guess>
 ```
+
+The lead may run `crew:scout` (haiku, read-only) to gather this evidence — paths, lines, symbols,
+call sites, config keys — and pastes its result into Known context marked verified; specialists
+never call it, and it never returns a verdict.
 
 Known context is evidence for the role to verify, not a conclusion for it to execute: every
 persona is told that when the code contradicts a fact in the brief, the code wins and Result

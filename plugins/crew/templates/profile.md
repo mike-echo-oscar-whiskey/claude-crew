@@ -34,6 +34,7 @@ technical-writer: <README sections and docs that must track reality>
 build:   <command>
 clients: <command or "-">
 test:    <command>
+migrate: <command or "-">
 gates:   <command>            # the one command that decides green/red
 deploy:  <command or "-">
 

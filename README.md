@@ -40,7 +40,10 @@ issue assignee + `in-progress` label + a claimed-by comment; `next` never offers
 product-owner · architect · frontend-engineer · backend-engineer · integration-engineer ·
 event-sourcing-engineer · genai-engineer · agentic-ai-engineer · multitenancy-engineer ·
 commercial-analyst · qa-engineer · security-engineer · cloud-engineer · ux-designer ·
-privacy-and-compliance · technical-writer. Disable any of them per project in the profile.
+privacy-and-compliance · technical-writer · scout. Disable any of them per project in the profile.
+The scout is the lead's only: use it before writing a brief to locate the evidence for its Known
+context (files, symbols, call sites, config keys, each as `path:line` plus the quoted line, and an
+explicit not-found list); a specialist never calls it and it never gives a verdict.
 
 Every persona has the same skeleton: read the profile first, mandate, not-my-job with the
 owning role named, how I work, definition of done, an evidence block, a fixed output contract
@@ -69,23 +72,30 @@ Set in each persona's frontmatter (`model:`), by kind of work rather than by rol
 
 | Kind of work | Model | Roles |
 |---|---|---|
-| Design, implementation, review and security; output becomes a contract or a verdict for others | `opus` | architect, backend, frontend, integration, cloud, event-sourcing, genai, agentic-ai, multitenancy, qa-engineer, security-engineer, ux-designer |
+| Judgement whose errors no gate catches: the design, the test verdict, the security verdict | `fable` | architect, qa-engineer, security-engineer |
+| Design, implementation and review; output becomes a contract for others | `opus` | backend, frontend, integration, cloud, event-sourcing, genai, agentic-ai, multitenancy, ux-designer |
 | Reading, checking and writing inside a fully bounded brief | `sonnet` | product-owner, technical-writer, commercial-analyst, privacy-and-compliance |
+| Locating evidence for a brief: grep, glob, read, no judgement | `haiku` | scout |
 
-No persona is pinned to `fable`. The delivery-lead session runs on it; a frontmatter pin fails hard
-when the allowance runs out (every pipeline step stops with a 429 instead of degrading, seen
-2026-09-04), and the allowance burns in the many specialist runs, not in the one lead context. When
-a single review needs the depth — a mutation review of a guard, a security review of an exposure
-decision — the lead passes `model` on that Agent call and says so in the brief.
+The three verdict roles are pinned to `fable` because their errors are the ones the gates cannot
+catch: a design that fits the wrong layer, a test that passes for the wrong reason, an exposure
+that nobody named. A pin fails hard when the allowance runs out — every pipeline step stops with a
+429 instead of degrading (seen 2026-09-04) — and the allowance burns in the many specialist runs,
+not in the one lead context. That is why rule 13 of the operating model carries a fallback: the
+lead re-issues the run at the persona's default tier or below (`opus` for these three) and names the
+downgrade in the report, so the user can judge whether the verdict still carries. The same lever
+moves a run up: when a single review needs the depth — a mutation review of a guard, a security
+review of an exposure decision — the lead passes `model` on that Agent call and says so in the brief.
 
-Tune after measuring; `effort:` is a separate lever (a cheaper model at high effort often beats
-a stronger one at low effort for reviews).
+`effort:` is a separate lever: the three verdict roles (architect, qa-engineer, security-engineer) pin
+`high`, every other role inherits the session's level. Tune after measuring; a cheaper model at high
+effort often beats a stronger one at low effort for reviews.
 
 ## Layout
 
 ```
 plugins/crew/
-  agents/           16 personas
+  agents/           17 personas
   skills/           init refine plan work review next status on off
   hooks/hooks.json  SessionStart (incl. compact) + UserPromptSubmit
   scripts/          session-context.sh prompt-context.sh crew-mode.sh tracker.sh common.sh
