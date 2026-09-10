@@ -87,9 +87,35 @@ downgrade in the report, so the user can judge whether the verdict still carries
 moves a run up: when a single review needs the depth — a mutation review of a guard, a security
 review of an exposure decision — the lead passes `model` on that Agent call and says so in the brief.
 
-`effort:` is a separate lever: the three verdict roles (architect, qa-engineer, security-engineer) pin
-`high`, every other role inherits the session's level. Tune after measuring; a cheaper model at high
-effort often beats a stronger one at low effort for reviews.
+`effort:` is **not** a supported agent-frontmatter key (verified 2026-09-10 against the Claude Code
+hooks and subagent documentation, client 2.1.263): a subagent inherits the *session's* effort level,
+and there is no per-agent lever. The three verdict roles used to carry `effort: high`; the harness
+ignored it, so it is gone rather than left as decoration that reads like a guarantee. The lead
+compensates the only way the harness allows — with the model: the roles whose errors no gate catches
+are pinned a tier up (`fable`), and a single run that needs more depth is moved up per call with
+`model` on the Agent call. If a future release documents a per-agent effort field, this reverses and
+the three pins come back.
+
+## Which model actually ran
+
+A pin is a declaration, not proof, and Claude Code's UI never shows a subagent's model. Two things
+make the real one visible:
+
+- **The task title.** Operating-model rule 2 requires every Agent call's `description` to start with
+  the model it dispatches on — `haiku · locate evidence for #371`, `fable/high · security review of
+  PR #403` — so the model is on screen while the run is in flight, and an override shows the
+  override.
+- **The transcript.** Every message in a subagent's JSONL records `"model":"<id>"`, so the model it
+  really used is provable after the fact. Rule 13 makes the lead grep it at every completion and
+  report a difference as a mismatch. The plugin's `SubagentStop` hook
+  (`scripts/subagent-model.sh`) does the same automatically, appending one line per completed
+  subagent — `<timestamp> <agent-type> declared=<persona model> actual=<model from the transcript>`,
+  plus `MISMATCH` when they disagree — to `crew-models.log` in the session's scratchpad;
+  `/crew:status` prints the last ten. The hook never fails a subagent: it exits 0 on every path and
+  writes nothing to stdout.
+
+That matters most for the 429 fallback in rule 13: a verdict role re-issued a tier down is exactly
+the case where the user must be free to discount the verdict, and the log shows it happened.
 
 ## Layout
 
@@ -97,8 +123,10 @@ effort often beats a stronger one at low effort for reviews.
 plugins/crew/
   agents/           17 personas
   skills/           init refine plan work review next status on off
-  hooks/hooks.json  SessionStart (incl. compact) + UserPromptSubmit
-  scripts/          session-context.sh prompt-context.sh crew-mode.sh tracker.sh common.sh
+  hooks/hooks.json  SessionStart (incl. compact) + UserPromptSubmit + SubagentStop
+  scripts/          session-context.sh prompt-context.sh crew-mode.sh tracker.sh
+                    subagent-model.sh common.sh
+  scripts/tests/    subagent-model.test.sh  (run bare; exits 0 on pass)
   templates/        operating-model.md profile.md role-addendum.md
 ```
 

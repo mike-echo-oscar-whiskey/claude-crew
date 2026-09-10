@@ -32,12 +32,15 @@ technical-writer: README.md (Install, Using it, Roles, Model per role, Layout) m
 
 build:   -
 clients: -
-test:    -
-gates:   claude plugin validate . && for f in plugins/crew/scripts/*.sh; do bash -n "$f" || exit 1; done && jq empty .claude-plugin/marketplace.json plugins/crew/.claude-plugin/plugin.json plugins/crew/hooks/hooks.json
+test:    bash plugins/crew/scripts/tests/subagent-model.test.sh
+gates:   claude plugin validate . && for f in plugins/crew/scripts/*.sh plugins/crew/scripts/tests/*.sh; do bash -n "$f" || exit 1; done && jq empty .claude-plugin/marketplace.json plugins/crew/.claude-plugin/plugin.json plugins/crew/hooks/hooks.json && bash plugins/crew/scripts/tests/subagent-model.test.sh
 deploy:  -
 
-Gates grow with the repo: when a Codex layout lands, its validation joins the gate line; when a
-test harness for the scripts lands, `test:` stops being "-".
+Gates grow with the repo: when a Codex layout lands, its validation joins the gate line. The first
+script witness landed on 2026-09-10 (`plugins/crew/scripts/tests/subagent-model.test.sh`): a witness
+is a bare bash script named `<script>.test.sh`, it feeds the script under test a canned input and
+asserts on the output, it exits 0 on pass and 1 on the first failure, and every new witness joins
+the `test:` and `gates:` lines above.
 
 ## Definition of done (walked explicitly by the delivery lead before a PR)
 

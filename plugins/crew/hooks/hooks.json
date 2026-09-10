@@ -22,6 +22,18 @@
           }
         ]
       }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/subagent-model.sh",
+            "timeout": 10
+          }
+        ]
+      }
     ]
   }
 }
