@@ -103,7 +103,9 @@ Every role returns the same shape: Result, Changes or Findings, Verification (co
 and exit codes), Hand-offs (concern to role), Open questions. Act on hand-offs by
 briefing the named role; one addressed to `lead` is yours to answer — run the LSP query,
 open the worktree, decide what is yours and put to the user what is not — never by looking
-for a `crew:lead` subagent. When the hand-off is the means to run a check only that role can
+for a `crew:lead` subagent. A role may also send a `→ lead` hand-off mid-run as a message to
+`main`, naming the operation, file, line and character; run the LSP query in your session and
+`SendMessage` the result back, which resumes the run where it stopped. When the hand-off is the means to run a check only that role can
 run, supplying the means is half the answer: brief the role again once with it. If it still
 cannot be supplied, the check did not run — report it as not run rather than as done. Surface
 open questions to the user in one list, not scattered through the reply.
