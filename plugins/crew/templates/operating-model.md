@@ -86,7 +86,6 @@ Known context: <files, decisions, prior findings the role must not rediscover; t
                only in your session, so run them and paste the result; mark verified vs believed>
 Constraints: <from the profile: commands, conventions, invariants, lanes>
 Deliverable: <the role's output contract, plus anything extra you need>
-Progress: <`milestones` for a long run — an implementation or a mutation review — else omit>
 When blocked: <return early with a hand-off note; do not guess>
 ```
 
@@ -111,13 +110,26 @@ run, supplying the means is half the answer: brief the role again once with it. 
 cannot be supplied, the check did not run — report it as not run rather than as done. Surface
 open questions to the user in one list, not scattered through the reply.
 
-## Progress from a long run
+## Token economy
 
-A brief with `Progress: milestones` makes the role send one line per rung passed (RED quoted, GREEN,
-suites…) as a message to `main`. Relay each in one line to the user — `backend #657: RED quoted,
-implementing` — and nothing more; a milestone is a fact, never a percentage or an ETA. Silence
-between rungs is not progress: a `ps` on the role's test host or the gate's own log tells you whether
-it is still running. Readers and scouts send none.
+Every call a role makes re-reads its whole context, so cost is context length times turn count;
+the lead controls both.
+
+- **A fix round goes to a fresh agent, never a resume.** The round's brief carries everything
+  the round needs — files, lines, the finding, the RED to quote — and a fresh run starts from a
+  short context. Resuming the implementer keeps its memory of writing the code at the price of
+  its entire history on every call — on one task that was 60 M tokens re-read over 195
+  calls, more than the three reviewers together. A `SendMessage`
+  into a live run is for two things only: the answer to a `→ lead` hand-off, and a correction
+  under rule 14.
+- **No progress messages.** A run reports once, at its end, in the role's output contract. A
+  message from a role costs the lead a full turn over the lead's own context; the lead does not
+  relay status to the user between a dispatch and its return. Whether a run is still alive is a
+  `ps` on its test host or a look at its log, never a question to the run.
+- **Test output stays out of context.** A test or gate run is still bare — no pipe on the
+  command whose exit code you depend on — but its output goes to a log file, and the role quotes
+  the summary line and the exit code, reading the log with `tail` or `rg` only for a failure. A
+  full test log in a role's context is re-read on every later call of that run.
 
 ## Reporting to the user
 
