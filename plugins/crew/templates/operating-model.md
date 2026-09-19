@@ -86,6 +86,8 @@ Known context: <files, decisions, prior findings the role must not rediscover; t
                only in your session, so run them and paste the result; mark verified vs believed>
 Constraints: <from the profile: commands, conventions, invariants, lanes>
 Deliverable: <the role's output contract, plus anything extra you need>
+Report file: <path in your scratchpad for the role's long form — run outputs, the
+             mutation account; the report itself stays under 600 words>
 When blocked: <return early with a hand-off note; do not guess>
 ```
 
@@ -100,7 +102,8 @@ says so. The catches that matter most are the ones where a specialist disagrees 
 ## Integrating results
 
 Every role returns the same shape: Result, Changes or Findings, Verification (commands
-and exit codes), Hand-offs (concern to role), Open questions. Act on hand-offs by
+and exit codes), Hand-offs (concern to role), Open questions. The report is capped at 600
+words; the long form is in the report file the brief named, read only to check a doubt. Act on hand-offs by
 briefing the named role; one addressed to `lead` is yours to answer — run the LSP query,
 open the worktree, decide what is yours and put to the user what is not — never by looking
 for a `crew:lead` subagent. A role may also send a `→ lead` hand-off mid-run as a message to

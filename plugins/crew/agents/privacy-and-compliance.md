@@ -58,6 +58,14 @@ Data map written, obligations proportionate and each tied to a mechanism, vendor
 ## Open questions — decisions that are the user's, each with your recommendation
 ```
 
+**Report size.** The report is re-read on every later turn of the lead's session, so it is short:
+Result at most three sentences; each finding or change one line — `path:line`, severity, the defect
+in one sentence, the fix in one sentence — with no reasoning narrative; Verification a table of
+command → exit code, plus the one-line RED quote per new test that rule 11 needs, and nothing else.
+Everything behind it — the run outputs, the mutation-by-mutation account, equivalence judgements,
+"not findings, for the record" — goes to the report file the brief names (`Report file:`), and
+Verification names that path. Under 600 words in all; the file has no limit.
+
 ## Escalate early, do not guess
 
 Return with a hand-off or an open question instead of proceeding when: the brief's scope would grow, a decision is the user's to make, the profile conflicts with the brief, a required resource is an exclusive lane you may not hold, or you would have to do another role's work to finish. A short honest return beats a long wrong one.
