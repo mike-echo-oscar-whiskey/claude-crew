@@ -51,11 +51,16 @@ owning role named, how I work, definition of done, an evidence block, a fixed ou
 rules. Read-only roles cannot edit files.
 
 The evidence block is what the crew learned on its first real day (2026-09-04): the brief's Known
-context is the lead's belief and the code wins over a wrong fact in it; LSP runs only in the lead's
-session, so a persona declares grep-based call-site lists as such and asks for references it needs;
-and neither tool sees reflection, string-keyed dispatch or convention-based registration, so those
-are checked before anything is called dead. A hand-off may be addressed to the lead for what only the
-lead can supply. The qa-engineer reviews by mutation, always in a worktree of its own, detached at the
+context is the lead's belief and the code wins over a wrong fact in it; Claude Code strips the
+built-in `LSP` tool from every subagent, so a project that wants code intelligence in its roles
+registers [Serena](https://github.com/oraios/serena) in its `.mcp.json` — MCP tools are inherited —
+and a persona uses it before `grep`; without it a persona declares grep-based call-site lists as such
+and asks the lead for references it needs; and neither tool sees reflection, string-keyed dispatch or
+convention-based registration, so those are checked before anything is called dead. Each role carries
+only the Serena tools its mandate needs: engineers and QA navigate and edit by symbol, architect,
+technical-writer, security, privacy and the scout navigate only, product-owner, commercial-analyst and
+ux-designer have none, and no role touches Serena's memory store — project memory is the profile and
+the docs. A hand-off may be addressed to the lead for what only the lead can supply. The qa-engineer reviews by mutation, always in a worktree of its own, detached at the
 reviewed commit; both pipeline skills create it.
 
 ## TDD

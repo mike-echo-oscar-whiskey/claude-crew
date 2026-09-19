@@ -44,13 +44,13 @@ echo "subagent-model.sh"
 # A pinned persona that ran on its pin: declared and actual agree, no flag.
 t=$(transcript match claude-fable-5-1 claude-fable-5-1)
 run_case "pinned role on its own model logs declared=fable actual=claude-fable-5-1" \
-  "$(jq -nc --arg t "$t" '{session_id:"s1",agent_type:"crew:qa-engineer",agent_id:"a1",agent_transcript_path:$t,transcript_path:"/home/x/.claude/projects/-p/s1.jsonl"}')" \
-  "crew:qa-engineer declared=fable actual=claude-fable-5-1" "MISMATCH"
+  "$(jq -nc --arg t "$t" '{session_id:"s1",agent_type:"crew:security-engineer",agent_id:"a1",agent_transcript_path:$t,transcript_path:"/home/x/.claude/projects/-p/s1.jsonl"}')" \
+  "crew:security-engineer declared=fable actual=claude-fable-5-1" "MISMATCH"
 
-# The case the whole feature exists for: a fable-pinned verdict role that really ran on sonnet.
+# The case the whole feature exists for: a fable-pinned verdict role (security-engineer; QA moved to opus in 0.5.6) that really ran on sonnet.
 t=$(transcript drift claude-sonnet-5)
 run_case "pinned role that ran on another model is flagged MISMATCH" \
-  "$(jq -nc --arg t "$t" '{session_id:"s2",agent_type:"crew:qa-engineer",agent_id:"a2",agent_transcript_path:$t,transcript_path:"/home/x/.claude/projects/-p/s2.jsonl"}')" \
+  "$(jq -nc --arg t "$t" '{session_id:"s2",agent_type:"crew:security-engineer",agent_id:"a2",agent_transcript_path:$t,transcript_path:"/home/x/.claude/projects/-p/s2.jsonl"}')" \
   "declared=fable actual=claude-sonnet-5 MISMATCH"
 
 # A dated model id still satisfies its tier alias.
