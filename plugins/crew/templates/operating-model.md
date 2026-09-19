@@ -86,6 +86,7 @@ Known context: <files, decisions, prior findings the role must not rediscover; t
                only in your session, so run them and paste the result; mark verified vs believed>
 Constraints: <from the profile: commands, conventions, invariants, lanes>
 Deliverable: <the role's output contract, plus anything extra you need>
+Progress: <`milestones` for a long run — an implementation or a mutation review — else omit>
 When blocked: <return early with a hand-off note; do not guess>
 ```
 
@@ -109,6 +110,14 @@ for a `crew:lead` subagent. A role may also send a `→ lead` hand-off mid-run a
 run, supplying the means is half the answer: brief the role again once with it. If it still
 cannot be supplied, the check did not run — report it as not run rather than as done. Surface
 open questions to the user in one list, not scattered through the reply.
+
+## Progress from a long run
+
+A brief with `Progress: milestones` makes the role send one line per rung passed (RED quoted, GREEN,
+suites…) as a message to `main`. Relay each in one line to the user — `backend #657: RED quoted,
+implementing` — and nothing more; a milestone is a fact, never a percentage or an ETA. Silence
+between rungs is not progress: a `ps` on the role's test host or the gate's own log tells you whether
+it is still running. Readers and scouts send none.
 
 ## Reporting to the user
 
