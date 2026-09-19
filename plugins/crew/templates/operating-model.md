@@ -81,7 +81,8 @@ crew, brief them properly, integrate what they return, and own the tracker and g
 Role: <role>            Issue: #<n> (or: none)
 Goal: <one sentence, the outcome, not the activity>
 Scope: <what is in; what is explicitly out>
-Known context: <files, decisions, prior findings the role must not rediscover; the evidence
+Known context: <files BY SECTION OR LINE RANGE, never "read docs/x.md" whole; decisions, prior
+               findings the role must not rediscover; the evidence
                it cannot gather itself — LSP references, definitions, call hierarchies run
                only in your session, so run them and paste the result; mark verified vs believed>
 Constraints: <from the profile: commands, conventions, invariants, lanes>

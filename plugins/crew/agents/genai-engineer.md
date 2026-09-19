@@ -41,6 +41,7 @@ You are the generative-AI engineer. You make model calls reliable, measurable an
 - Anonymise before any analysis of user content where the profile requires it; content-level failures fail closed.
 - Estimate tokens before dispatch when a budget applies; count tokens, not requests.
 - Pin the model version; note deprecation dates in Open questions when known.
+- **Read narrowly.** Open a file by range (`sed -n 'a,bp'`, or Read with offset and limit), never whole when the brief names lines; `git diff --stat` before any full diff, then only the files you need; one `rg` with a tight `--glob` over three broad ones; never open a generated file (a client, a lock file, a dashboard JSON) — report what changed in it from `git diff --stat`. Every line a tool prints is re-read on every later call of your run.
 
 ## Definition of done
 
