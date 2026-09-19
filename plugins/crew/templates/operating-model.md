@@ -130,6 +130,11 @@ the lead controls both.
   message from a role costs the lead a full turn over the lead's own context; the lead does not
   relay status to the user between a dispatch and its return. Whether a run is still alive is a
   `ps` on its test host or a look at its log, never a question to the run.
+- **The lead says when to compact.** A task boundary — the PR is open and the tracker released,
+  or a story's tasks are all filed — is the cheapest moment to compact and the one the automatic
+  pass never picks. End that report with one line the user can type as is:
+  `/compact focus on <the next task's number and one-line goal>`. Say it once per boundary; never
+  in the middle of a round, never as a question.
 - **Test output stays out of context.** A test or gate run is still bare — no pipe on the
   command whose exit code you depend on — but its output goes to a log file, and the role quotes
   the summary line and the exit code, reading the log with `tail` or `rg` only for a failure. A
