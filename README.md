@@ -54,9 +54,11 @@ The evidence block is what the crew learned on its first real day (2026-09-04): 
 context is the lead's belief and the code wins over a wrong fact in it; Claude Code strips the
 built-in `LSP` tool from every subagent, so a project that wants code intelligence in its roles
 registers [Serena](https://github.com/oraios/serena) in its `.mcp.json` — MCP tools are inherited —
-and a persona uses it before `grep`; without it a persona declares grep-based call-site lists as such
-and asks the lead for references it needs; and neither tool sees reflection, string-keyed dispatch or
-convention-based registration, so those are checked before anything is called dead. Each role carries
+and every reference list a persona reports comes from it, at Serena's default answer cap (a
+grep-based list where Serena was available is a defect the lead sends back); without it a persona
+declares grep-based call-site lists as such and asks the lead for references it needs; and neither
+tool sees reflection, string-keyed dispatch or convention-based registration, so those are checked
+before anything is called dead. Each role carries
 only the Serena tools its mandate needs: engineers and QA navigate and edit by symbol, architect,
 technical-writer, security, privacy and the scout navigate only, product-owner, commercial-analyst and
 ux-designer have none, and no role touches Serena's memory store — project memory is the profile and
