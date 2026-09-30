@@ -5,7 +5,8 @@
 #   tracker.sh ensure-labels
 #   tracker.sh story create --title T --body-file F                  -> prints issue number
 #   tracker.sh task  create --story N --title T --role R --body-file F [--blocked-by "12,13"]
-#   tracker.sh claim N                (assign @me, label in-progress, comment claimed-by)
+#   tracker.sh claim N                (assign @me, label in-progress, comment claimed-by; warns when the body is off-shape)
+#   tracker.sh lint [<n> | --all | --kind story|task|bug|tech-debt] [--quiet]   (read-only conformance report)
 #   tracker.sh release N --to in-review|blocked|open
 #   tracker.sh next                   (claimable tasks: open, unassigned, not in-progress/in-review/blocked, blockers closed)
 #   tracker.sh status                 (stories with task progress)
@@ -34,6 +35,10 @@ if [ "$SIZE_CAP" != "-" ] && ! [[ $SIZE_CAP =~ ^[0-9]{1,6}$ ]]; then SIZE_CAP=15
 GENERATED=$(crew_profile_value "$profile" generated || true); GENERATED=${GENERATED//,/ }
 case "$GENERATED" in -) GENERATED="" ;; esac
 
+# The item kinds, in the order `lint --all` walks them: one `issue list` call each, never a fetch per
+# item. A kind is a label, so `lint` judges an item against the template for the kind it carries.
+KINDS=(story task bug tech-debt)
+
 ROLES=(product-owner architect frontend-engineer backend-engineer integration-engineer event-sourcing-engineer genai-engineer agentic-ai-engineer multitenancy-engineer commercial-analyst qa-engineer security-engineer cloud-engineer ux-designer privacy-and-compliance technical-writer)
 
 ensure_labels() {
@@ -43,6 +48,13 @@ ensure_labels() {
   "${GH[@]}" label create in-review         --color 5319E7 --description "PR open, awaiting merge" --force >/dev/null
   "${GH[@]}" label create blocked           --color B60205 --description "Cannot proceed; see body" --force >/dev/null
   "${GH[@]}" label create needs-refinement  --color D4C5F9 --description "Story not ready for planning" --force >/dev/null
+  # Severity is a label, never body text (D8), and each description carries what the label obliges, so a
+  # reviewer who never opens the review step still reads what a p2 costs. GitHub caps a label description
+  # at 100 characters, which is why these are the obligation's short form; its full text lives once, in
+  # the review step. Both hold only for a finding that carries its reproduction.
+  "${GH[@]}" label create p1 --color B60205 --description "Blocks: always fixed before the change is offered; a finding needs its reproduction" --force >/dev/null
+  "${GH[@]}" label create p2 --color D93F0B --description "Fixed here when this change caused it or made it reachable; else one line in the PR + its own item" --force >/dev/null
+  "${GH[@]}" label create p3 --color FEF2C0 --description "Recorded and scheduled; never blocks" --force >/dev/null
   for r in "${ROLES[@]}"; do
     "${GH[@]}" label create "role:$r" --color BFD4F2 --description "Owned by the $r persona" --force >/dev/null
   done
@@ -108,6 +120,34 @@ files_hand_written() { # <file> <heading> -> bullets whose path is not a generat
   echo "$n"
 }
 
+SECTIONS=()
+check_sections() { # <file> <kind> <heading that must stay EMPTY, or ""> [heading exempt from both]
+  # The exempt heading is how the create-time rules and lint differ: a story is created with "## Tasks"
+  # empty and lives on the board with the checklist the adapter appends, so on the board the section is
+  # neither required to be empty nor required to carry text — only to be there.
+  local f=$1 kind=$2 empty=$3 exempt=${4:-} sec
+  SECTIONS=()
+  mapfile -t SECTIONS < <(template_sections "$kind")
+  if [ ${#SECTIONS[@]} -eq 0 ]; then
+    refuse "no $kind template at $(item_template "$kind") to read the required sections from"
+    return 0
+  fi
+  for sec in "${SECTIONS[@]}"; do
+    if ! grep -aqxF "$sec" "$f"; then refuse "section \"$sec\" is missing"; continue; fi
+    if [ -n "$exempt" ] && [ "$sec" = "$exempt" ]; then continue; fi
+    if [ -n "$empty" ] && [ "$sec" = "$empty" ]; then
+      if section_has_text "$f" "$sec"; then refuse "\"$empty\" must be empty: the adapter appends the checklist there"; fi
+    elif ! section_has_text "$f" "$sec"; then refuse "section \"$sec\" is empty"; fi
+  done
+}
+
+check_placeholders() { # <file> -> one refusal per surviving template stub
+  local ph line
+  ph=$(body_placeholders "$1")
+  [ -n "$ph" ] || return 0
+  while IFS= read -r line; do refuse "unfilled template placeholder — $line"; done <<<"$ph"
+}
+
 REFUSALS=()
 refuse() { REFUSALS+=("refused: $1"); }
 refuse_non_text() { # <file> -> non-zero, one refusal recorded, when grep would call the body binary
@@ -129,7 +169,9 @@ validate_task_body() { # <assembled body file> <story as given>
 
   first=$(head -1 "$f")
   if [ "$first" != "Story: $SIGIL$num" ]; then
-    refuse "first line must be \"Story: $SIGIL$num\" (the board rolls tasks up by it) — got \"$first\""
+    # ${num:-<n>}: lint reads the number out of the first line itself, so a body with no such line has
+    # no number to name — the shape is what the message has to state there.
+    refuse "first line must be \"Story: $SIGIL${num:-<n>}\" (the board rolls tasks up by it) — got \"$first\""
   fi
   for key in "Blocked by:" "Role:" "Size:"; do
     if ! grep -aqE "^$key" "$f"; then refuse "the \"$key\" line is missing"; fi
@@ -150,15 +192,8 @@ validate_task_body() { # <assembled body file> <story as given>
     fi
   fi
 
-  local -a sections=()
-  mapfile -t sections < <(template_sections task)
-  if [ ${#sections[@]} -eq 0 ]; then
-    refuse "no task template at $(item_template task) to read the required sections from"
-  fi
-  for sec in "${sections[@]}"; do
-    if ! grep -aqxF "$sec" "$f"; then refuse "section \"$sec\" is missing"
-    elif ! section_has_text "$f" "$sec"; then refuse "section \"$sec\" is empty"; fi
-  done
+  check_sections "$f" task ""
+  local -a sections=("${SECTIONS[@]+"${SECTIONS[@]}"}")
 
   local files_h tests_h proves_h
   files_h=$(section_of '## Files' "${sections[@]+"${sections[@]}"}")
@@ -183,30 +218,21 @@ validate_task_body() { # <assembled body file> <story as given>
     refuse "$proves_h names no criterion: it needs at least one \"AC <n>\" reference"
   fi
 
-  ph=$(body_placeholders "$f")
-  if [ -n "$ph" ]; then
-    while IFS= read -r line; do refuse "unfilled template placeholder — $line"; done <<<"$ph"
-  fi
+  check_placeholders "$f"
   verdict
 }
 
-validate_story_body() { # <body file>
-  local f=$1 sec last tl n want rows ph line
+validate_story_body() { # <body file> [on-board]
+  # "on-board": the body as the board holds it, so "## Tasks" carries the adapter's checklist. Without it
+  # the create-time rule applies and that section must be empty.
+  local f=$1 board=${2:-} last tl n want rows
   REFUSALS=()
 
   refuse_non_text "$f" || { verdict; return; }
 
-  local -a sections=()
-  mapfile -t sections < <(template_sections story)
-  if [ ${#sections[@]} -eq 0 ]; then
-    refuse "no story template at $(item_template story) to read the required sections from"
-  fi
-  for sec in "${sections[@]}"; do
-    if ! grep -aqxF "$sec" "$f"; then refuse "section \"$sec\" is missing"; continue; fi
-    if [ "$sec" = "## Tasks" ]; then
-      if section_has_text "$f" "$sec"; then refuse "\"## Tasks\" must be empty: the adapter appends the checklist there"; fi
-    elif ! section_has_text "$f" "$sec"; then refuse "section \"$sec\" is empty"; fi
-  done
+  if [ -n "$board" ]; then check_sections "$f" story "" "## Tasks"
+  else check_sections "$f" story "## Tasks"; fi
+  local -a sections=("${SECTIONS[@]+"${SECTIONS[@]}"}")
   last=$({ grep -aE '^## ' "$f" || true; } | tail -1)
   if [ -n "$last" ] && [ "$last" != "## Tasks" ]; then
     refuse "\"## Tasks\" must be the last section — got \"$last\""
@@ -246,10 +272,15 @@ validate_story_body() { # <body file>
     done
   fi
 
-  ph=$(body_placeholders "$f")
-  if [ -n "$ph" ]; then
-    while IFS= read -r line; do refuse "unfilled template placeholder — $line"; done <<<"$ph"
-  fi
+  check_placeholders "$f"
+  verdict
+}
+
+validate_plain_body() { # <kind> <body file> — bug and tech-debt: the checks that need no header contract
+  REFUSALS=()
+  refuse_non_text "$2" || { verdict; return; }
+  check_sections "$2" "$1" ""
+  check_placeholders "$2"
   verdict
 }
 
@@ -285,12 +316,102 @@ task_create() {
   echo "$n"
 }
 
+# ---- lint: the same checks over bodies already in hand ------------------------------------------
+# One `issue list --state all --limit 500 --json number,labels,body` per kind — two to four calls for a
+# board of a few hundred, no fetch per item — then the create-time validators over each body. `lint`
+# only reads: it never edits, comments on or closes anything.
+
+LINT_QUIET=0; LINT_OK=0; LINT_BAD=0
+
+kind_of_labels() { # <json array of label NAMES> -> the first kind label it carries, or ""
+  local k
+  for k in "${KINDS[@]}"; do
+    if jq -e --arg k "$k" 'index($k)' >/dev/null 2>&1 <<<"$1"; then echo "$k"; return 0; fi
+  done
+  return 0
+}
+
+lint_line() { # <number> <kind> <what is wrong> -> the report's one line for an item
+  [ "$LINT_QUIET" = 1 ] && return 0
+  printf '%s%-5s %-9s %s\n' "$SIGIL" "$1" "$2" "$3"
+}
+
+lint_body() { # <kind> <number> <body file> -> 0 when it conforms, 1 with its line printed when it does not
+  local kind=$1 n=$2 f=$3 num line joined=""
+  case "$kind" in
+    task)  num=$(sed -nE "1s/^Story:[[:space:]]*$SIGIL?([0-9]+)[[:space:]]*\$/\\1/p" "$f")
+           validate_task_body "$f" "$num" 2>/dev/null || true ;;
+    story) validate_story_body "$f" on-board 2>/dev/null || true ;;
+    *)     validate_plain_body "$kind" "$f" 2>/dev/null || true ;;
+  esac
+  [ ${#REFUSALS[@]} -eq 0 ] && return 0
+  for line in "${REFUSALS[@]}"; do joined+="${line#refused: }; "; done
+  lint_line "$n" "$kind" "${joined%; }"
+  return 1
+}
+
+lint_rows() { # <kind, or "" to read it off each item's labels> <the json array from gh>
+  local kind=$1 row n f k
+  while IFS= read -r row; do
+    [ -n "$row" ] || continue
+    n=$(jq -r '.number // "?"' <<<"$row")
+    k=$kind
+    [ -n "$k" ] || k=$(kind_of_labels "$(jq -c '[(.labels // [])[].name]' <<<"$row")")
+    if [ -z "$k" ]; then
+      LINT_BAD=$((LINT_BAD + 1))
+      lint_line "$n" "-" "no kind label: one of ${KINDS[*]} is what says which shape to check"
+      continue
+    fi
+    f=$(mktemp); jq -r '.body // ""' <<<"$row" > "$f"
+    if lint_body "$k" "$n" "$f"; then LINT_OK=$((LINT_OK + 1)); else LINT_BAD=$((LINT_BAD + 1)); fi
+    rm -f "$f"
+  done < <(jq -c '.[]' <<<"$2")
+}
+
+lint() {
+  local one="" k; local -a kinds=()
+  LINT_QUIET=0; LINT_OK=0; LINT_BAD=0
+  while [ $# -gt 0 ]; do case "$1" in
+    --all)   kinds=("${KINDS[@]}"); shift ;;
+    --kind)  [ $# -ge 2 ] || { echo "lint --kind needs one of: ${KINDS[*]}" >&2; exit 1; }
+             kinds=("$2"); shift 2 ;;
+    --quiet) LINT_QUIET=1; shift ;;
+    *)       one=${1#"$SIGIL"}; shift
+             [[ $one =~ ^[0-9]+$ ]] || { echo "lint takes [<n> | --all | --kind ${KINDS[*]}] [--quiet]" >&2; exit 1; } ;;
+  esac; done
+  for k in "${kinds[@]+"${kinds[@]}"}"; do
+    case " ${KINDS[*]} " in *" $k "*) ;; *) echo "lint --kind takes one of: ${KINDS[*]} (got '$k')" >&2; exit 1 ;; esac
+  done
+  if [ -n "$one" ]; then
+    lint_rows "" "$("${GH[@]}" issue view "$one" --json number,labels,body | jq -c '[.]')"
+  elif [ ${#kinds[@]} -eq 0 ]; then
+    echo "lint takes [<n> | --all | --kind ${KINDS[*]}] [--quiet]" >&2; exit 1
+  else
+    for k in "${kinds[@]}"; do
+      lint_rows "$k" "$("${GH[@]}" issue list --label "$k" --state all --limit 500 --json number,labels,body)"
+    done
+  fi
+  echo "$LINT_OK conforming, $LINT_BAD not"
+  [ "$LINT_BAD" -eq 0 ]
+}
+
 claim() {
   local n=$1
-  local cur; cur=$("${GH[@]}" issue view "$n" --json assignees,labels,state -q '{a:[.assignees[].login], l:[.labels[].name], s:.state}')
+  local cur; cur=$("${GH[@]}" issue view "$n" --json assignees,labels,state,body -q '{a:[.assignees[].login], l:[.labels[].name], s:.state, b:.body}')
   [ "$(jq -r .s <<<"$cur")" = "OPEN" ] || { echo "#$n is not open" >&2; exit 3; }
   if jq -e '.l | index("in-progress")' <<<"$cur" >/dev/null; then
     echo "#$n is already claimed by $(jq -r '.a | join(",")' <<<"$cur")" >&2; exit 3
+  fi
+  # D7: an item filed before this shape existed is still claimable. The lint lines come back as warnings
+  # and the claim proceeds untouched — refusing here would strand every item on the board and turn a claim
+  # into a migration. The lead brings the body to shape in one edit; `claim` never edits it.
+  local kind f
+  kind=$(kind_of_labels "$(jq -c .l <<<"$cur")")
+  if [ -n "$kind" ]; then
+    LINT_QUIET=0
+    f=$(mktemp); jq -r '.b // ""' <<<"$cur" > "$f"
+    lint_body "$kind" "$n" "$f" 2>/dev/null | sed 's/^/warning: /' >&2 || true
+    rm -f "$f"
   fi
   "${GH[@]}" issue edit "$n" --add-assignee @me --add-label in-progress --remove-label in-review >/dev/null 2>&1 || "${GH[@]}" issue edit "$n" --add-assignee @me --add-label in-progress >/dev/null
   "${GH[@]}" issue comment "$n" --body "claimed-by: $(hostname) at $(date -Is)${CREW_SESSION:+ (session $CREW_SESSION)}" >/dev/null
@@ -353,6 +474,7 @@ case "$cmd" in
   story) sub=${1:-}; shift || true; [ "$sub" = create ] && story_create "$@" || { echo "story create ..." >&2; exit 1; } ;;
   task)  sub=${1:-}; shift || true; [ "$sub" = create ] && task_create "$@"  || { echo "task create ..." >&2; exit 1; } ;;
   claim) claim "$@" ;;
+  lint) lint "$@" ;;
   release) release "$@" ;;
   next) next ;;
   status) status ;;

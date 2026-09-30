@@ -29,7 +29,7 @@ Development from a checkout: `claude --plugin-dir ./plugins/crew`.
 | Work a task to a PR in a worktree | `/crew:work #15` |
 | Crew review of a PR | `/crew:review 40` |
 | Pick the next claimable task | `/crew:next` |
-| Board | `/crew:status` |
+| Board, with how many items still match the item shape | `/crew:status` (the count comes from `scripts/tracker.sh lint --all`, which only reads) |
 | Whole session as delivery lead | `/crew:on` … `/crew:off` (or `mode: always` in the profile) |
 
 Second session on the same repo: `claude --worktree task-15`, then `/crew:next`. Claims are

@@ -19,13 +19,25 @@ mkdir -p "$tmp/bin"
 cat > "$tmp/bin/gh" <<'STUB'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >> "${CREW_GH_LOG:-/dev/null}"
-prev=""; bf=""
-for a in "$@"; do [ "$prev" = "--body-file" ] && bf=$a; prev=$a; done
+prev=""; bf=""; lbl=""; num=""
+for a in "$@"; do
+  case "$prev" in --body-file) bf=$a ;; --label) lbl=$a ;; view) num=$a ;; esac
+  prev=$a
+done
 case "$*" in
   *"issue create"*)
     [ -n "$bf" ] && cat "$bf" >> "${CREW_GH_BODY:-/dev/null}"
     echo "https://github.com/o/r/issues/99" ;;
-  *"issue view"*) echo "## Tasks" ;;
+  *"issue list"*)
+    f="${CREW_GH_LIST_DIR:-/nonexistent}/$lbl.json"
+    if [ -f "$f" ]; then cat "$f"; else echo '[]'; fi ;;
+  *"issue view"*)
+    case "$*" in
+      *"--json body"*) echo "## Tasks" ;;                 # task create, appending the story checklist
+      *assignees*) cat "${CREW_GH_CLAIM:-/dev/null}" ;;   # claim's one read, with -q already applied
+      *) f="${CREW_GH_LIST_DIR:-/nonexistent}/item-$num.json"
+         if [ -f "$f" ]; then cat "$f"; else echo '{}'; fi ;;
+    esac ;;
 esac
 STUB
 chmod +x "$tmp/bin/gh"
@@ -123,6 +135,9 @@ EOF
   echo "$f"
 }
 
+lists="$tmp/lists"; mkdir -p "$lists"      # one canned `gh issue list --json` array per kind label
+claimjson="$tmp/claim.json"; : > "$claimjson"
+
 ghlog="" ghbody="" out="" rc=0
 # run <project-dir> -- <tracker args...>
 # The adapter runs *in* the project directory, as a real invocation does: a `generated:` glob has to be
@@ -131,6 +146,7 @@ run() {
   local dir=$1; shift; [ "${1:-}" = "--" ] && shift
   ghlog="$tmp/gh.log"; ghbody="$tmp/gh.body"; : > "$ghlog"; : > "$ghbody"
   out=$(cd "$dir" && CREW_PROJECT_DIR="$dir" CREW_GH_LOG="$ghlog" CREW_GH_BODY="$ghbody" \
+        CREW_GH_LIST_DIR="$lists" CREW_GH_CLAIM="$claimjson" \
         PATH="$tmp/bin:$PATH" bash "$sut" "$@" 2>&1)
   rc=$?
 }
@@ -285,6 +301,123 @@ run "$p" -- task create --story 5 --title T --role agentic-ai-engineer --body-fi
 created "a conforming task body is created" "Story: #5"
 run "$p" -- story create --title T --body-file "$(conforming_story s7)"
 created "a conforming story body is created"
+
+echo "tracker.sh lint, the claim warning and the severity labels"
+
+# board_task <name> <Size: line> <files> <tests> <seam> -> the same body as it sits on the board, i.e.
+# carrying the two header lines `task create` prepends. lint reads what the board holds, not a draft.
+board_task() {
+  local f; f=$(task_body "$@")
+  { echo 'Story: #1'; echo 'Blocked by: none'; echo; cat "$f"; } > "$f.board"
+  echo "$f.board"
+}
+
+# list_json <kind> <number>:<body file>... -> the canned `gh issue list --json` array for that label
+list_json() {
+  local kind=$1 pair n f i=0 filter="["; local -a jqargs=(); shift
+  for pair in "$@"; do
+    n=${pair%%:*}; f=${pair#*:}; i=$((i + 1))
+    jqargs+=(--rawfile "b$i" "$f")
+    if [ "$i" -gt 1 ]; then filter+=","; fi
+    filter+="{number:$n,labels:[{name:\"$kind\"}],body:\$b$i}"
+  done
+  jq -n "${jqargs[@]}" "$filter]" > "$lists/$kind.json"
+}
+
+# reported <name> <expected exit> <expected substring>... -> 0 when the exit code and every substring match
+reported() {
+  local name=$1 exp=$2 want; shift 2
+  if [ "$rc" -ne "$exp" ]; then fail "$name" "expected exit $exp, got $rc; output: $out"; return 1; fi
+  for want in "$@"; do
+    case "$out" in *"$want"*) ;; *) fail "$name" "expected '$want' in the output, got: $out"; return 1 ;; esac
+  done
+  return 0
+}
+
+good=$(board_task L1 'Size: 2 hand-written files (+ 0 generated) · 1 RED tests · one PR' 2 1 'Split line: n/a')
+badsize=$(board_task L2 'Size: about 25 files' 2 1 'Split line: n/a')
+nogoal=$(board_task L3 'Size: 2 hand-written files (+ 0 generated) · 1 RED tests · one PR' 2 1 'Split line: n/a')
+sed -i '/^## Goal$/d' "$nogoal"
+
+# 7. AC 6 — one line per non-conforming item, the closing count, exit 1, and not one write: `lint` is a
+#    report. `--quiet` drops the per-item lines and keeps the count, which is what /crew:status shows.
+n1="lint names each failing check per item and exits 1"
+list_json task "11:$good" "12:$badsize" "13:$nogoal"
+run "$p" -- lint --kind task
+if reported "$n1" 1 '#12' 'Size:' 'about 25 files' '#13' 'section "## Goal" is missing' '1 conforming, 2 not'; then
+  if grep -aqE 'issue (edit|comment|create)|label create' "$ghlog"; then
+    fail "$n1" "lint wrote to the board: $(grep -aE 'issue (edit|comment|create)|label create' "$ghlog" | head -1)"
+  else
+    run "$p" -- lint --kind task --quiet
+    if [ "$rc" -ne 1 ]; then fail "$n1" "--quiet: expected exit 1, got $rc; output: $out"
+    elif [ "$out" != "1 conforming, 2 not" ]; then fail "$n1" "--quiet must print the closing line alone, got: $out"
+    else pass "$n1"; fi
+  fi
+fi
+
+# 8. AC 6 — a conforming board prints the count and nothing else, and exits 0: the detector is quiet when
+#    there is nothing to report, or nobody runs it unprompted.
+n2="lint exits 0 and prints the count when every body conforms"
+list_json task "11:$good" "14:$(board_task L4 'Size: 1 hand-written files (+ 0 generated) · 1 RED tests · one PR' 1 1 'Split line: n/a')"
+run "$p" -- lint --kind task
+if reported "$n2" 0 '2 conforming, 0 not'; then
+  if [ "$out" != "2 conforming, 0 not" ]; then fail "$n2" "a conforming board needs no per-item line, got: $out"
+  else pass "$n2"; fi
+fi
+
+# 9. AC 7, AC 11 — an item filed before this shape existed is still claimable: the lint lines come back as
+#    warnings and the assign, the label and the comment all happen. Refusing here would strand every old item.
+n3="claim prints the lint lines as warnings and still claims"
+jq -n --rawfile b "$nogoal" '{a:[],l:["task"],s:"OPEN",b:$b}' > "$claimjson"
+run "$p" -- claim 7
+if reported "$n3" 0 'warning:' 'section "## Goal" is missing' 'claimed #7'; then
+  if ! grep -aq -- '--add-assignee @me' "$ghlog"; then fail "$n3" "the assign never happened: $(cat "$ghlog")"
+  elif ! grep -aq -- '--add-label in-progress' "$ghlog"; then fail "$n3" "the label never happened: $(cat "$ghlog")"
+  elif ! grep -aq 'issue comment' "$ghlog"; then fail "$n3" "the claimed-by comment never happened: $(cat "$ghlog")"
+  else pass "$n3"; fi
+fi
+
+# 10. D8 — severity is a label, and the obligation travels in the label's own description: a reviewer who
+#     never opens the review step still reads what a p2 costs. GitHub caps that description at 100
+#     characters, so the length is asserted here rather than discovered as a 422 against a real board.
+n4="ensure-labels creates p1, p2 and p3"
+d1='Blocks: always fixed before the change is offered; a finding needs its reproduction'
+d2='Fixed here when this change caused it or made it reachable; else one line in the PR + its own item'
+d3='Recorded and scheduled; never blocks'
+labels_ok=1
+check_label() { # <name> <colour> <description>
+  local line
+  line=$(grep -a -m1 "label create $1 " "$ghlog")
+  if [ -z "$line" ]; then fail "$n4" "$1 was never created"; labels_ok=0; return; fi
+  case "$line" in *"--color $2"*) ;; *) fail "$n4" "$1 has the wrong colour: $line"; labels_ok=0; return ;; esac
+  case "$line" in *"--description $3"*) ;; *) fail "$n4" "$1 must carry its obligation: $line"; labels_ok=0; return ;; esac
+  if [ ${#3} -gt 100 ]; then fail "$n4" "$1's description is ${#3} characters, GitHub caps it at 100"; labels_ok=0; fi
+}
+run "$p" -- ensure-labels
+check_label p1 B60205 "$d1"
+check_label p2 D93F0B "$d2"
+check_label p3 FEF2C0 "$d3"
+if [ "$labels_ok" = 1 ]; then pass "$n4"; fi
+
+# 11. AC 11 — the shape a story has ON the board is not the shape it is created with: `task create`
+#     appends the checklist under "## Tasks", so lint reading the create-time rule reports every story
+#     with a task as broken. Found by running `lint --all` against the real board (#2 came back
+#     non-conforming for carrying its own checklist). The create-time rule itself must stay.
+n5="lint accepts a story whose ## Tasks the adapter has filled, and create still refuses one"
+filled="$tmp/s-filled.md"
+{ cat "$(conforming_story s11)"; echo; echo '- [ ] #3 (agentic-ai-engineer) do the thing'; } > "$filled"
+list_json story "2:$filled"
+run "$p" -- lint --kind story
+if reported "$n5" 0 '1 conforming, 0 not'; then
+  list_json story "2:$(conforming_story s11b)"
+  run "$p" -- lint --kind story
+  if ! reported "$n5" 0 '1 conforming, 0 not'; then :
+  else
+    run "$p" -- story create --title T --body-file "$filled"
+    if [ "$rc" -ne 1 ]; then fail "$n5" "create must still refuse a filled ## Tasks, got exit $rc: $out"
+    else pass "$n5"; fi
+  fi
+fi
 
 if [ "$fails" -eq 0 ]; then echo "PASS"; exit 0; fi
 echo "FAIL ($fails)"; exit 1
