@@ -28,7 +28,9 @@ GH=(gh --repo "$REPO")
 
 TEMPLATES=${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}/templates
 SIZE_CAP=$(crew_profile_value "$profile" size-cap || true); SIZE_CAP=${SIZE_CAP:-15}
-if [ "$SIZE_CAP" != "-" ] && ! [[ $SIZE_CAP =~ ^[0-9]+$ ]]; then SIZE_CAP=15; fi
+# Bounded on purpose: a longer run of digits passes a bare ^[0-9]+$ and then makes `[ -gt ]` fail
+# with "integer expected", which silently removes the cap check instead of capping anything.
+if [ "$SIZE_CAP" != "-" ] && ! [[ $SIZE_CAP =~ ^[0-9]{1,6}$ ]]; then SIZE_CAP=15; fi
 GENERATED=$(crew_profile_value "$profile" generated || true); GENERATED=${GENERATED//,/ }
 case "$GENERATED" in -) GENERATED="" ;; esac
 
@@ -71,6 +73,14 @@ section_of() { # <heading prefix> <headings...> -> the first heading carrying th
   printf '%s\n' "$@" | { grep -m1 "^$prefix" || true; }
 }
 
+body_is_text() { # <file> -> false when the body carries a NUL byte
+  # grep then calls the file binary: it prints no match line, so H, T and the placeholder list all come
+  # back empty and every check that reads the body is skipped rather than failed.
+  local all nul
+  all=$(wc -c < "$1"); nul=$(tr -d '\000' < "$1" | wc -c)
+  [ "$all" = "$nul" ]
+}
+
 section_body() { awk -v h="$2" '$0 == h {f = 1; next} /^## /{f = 0} f' "$1"; }
 section_has_text() { [ -n "$(section_body "$1" "$2" | tr -d '[:space:]')" ]; }
 
@@ -78,27 +88,33 @@ body_placeholders() { # <file> -> the template stubs still in the body, one per 
   # The body is joined into one line first: a code span and a stub both wrap across line breaks,
   # so a line-at-a-time scan reports a wrapped `<…>` inside backticks as unfilled.
   tr '\n' '\001' < "$1" | sed -E 's/`[^`]*`//g' \
-    | { grep -oE '<!--|<[^<>[:space:]/][^<>]*>' || true; } \
-    | { grep -vE '^<https?:' || true; } | tr '\001' ' ' | sort -u
+    | { grep -aoE '<!--|<[^<>[:space:]/][^<>]*>' || true; } \
+    | { grep -avE '^<https?:' || true; } | tr '\001' ' ' | sort -u
 }
 
 files_hand_written() { # <file> <heading> -> bullets whose path is not a generated: glob
   local n=0 line p glob
-  while IFS= read -r line; do
+  local -a globs=(); read -ra globs <<<"$GENERATED"   # split, never expand: an unquoted $GENERATED
+  while IFS= read -r line; do                         # would pathname-expand against the cwd
     p=$(sed -nE 's/^[[:space:]]*-[[:space:]]*`([^`]*)`.*/\1/p' <<<"$line")
-    if [ -n "$GENERATED" ] && [ -n "$p" ]; then
-      for glob in $GENERATED; do
+    if [ -n "$p" ]; then
+      for glob in ${globs[@]+"${globs[@]}"}; do
         # shellcheck disable=SC2053  # the profile's value is a glob on purpose
         if [[ $p == $glob ]]; then continue 2; fi
       done
     fi
     n=$((n + 1))
-  done < <(section_body "$1" "$2" | { grep -E '^[[:space:]]*- ' || true; })
+  done < <(section_body "$1" "$2" | { grep -aE '^[[:space:]]*- ' || true; })
   echo "$n"
 }
 
 REFUSALS=()
 refuse() { REFUSALS+=("refused: $1"); }
+refuse_non_text() { # <file> -> non-zero, one refusal recorded, when grep would call the body binary
+  body_is_text "$1" && return 0
+  refuse "the body is not text — it carries a NUL byte, and every check reading it would match nothing"
+  return 1
+}
 verdict() { # 0 when the body conforms; otherwise every failing check on stderr, one per line
   if [ ${#REFUSALS[@]} -eq 0 ]; then return 0; fi
   printf '%s\n' "${REFUSALS[@]}" >&2
@@ -109,25 +125,27 @@ validate_task_body() { # <assembled body file> <story as given>
   local f=$1 num=${2//[!0-9]/} first key size h="" t="" sec nf nt ph line
   REFUSALS=()
 
+  refuse_non_text "$f" || { verdict; return; }
+
   first=$(head -1 "$f")
   if [ "$first" != "Story: $SIGIL$num" ]; then
     refuse "first line must be \"Story: $SIGIL$num\" (the board rolls tasks up by it) — got \"$first\""
   fi
   for key in "Blocked by:" "Role:" "Size:"; do
-    if ! grep -qE "^$key" "$f"; then refuse "the \"$key\" line is missing"; fi
+    if ! grep -aqE "^$key" "$f"; then refuse "the \"$key\" line is missing"; fi
   done
 
-  size=$(grep -m1 '^Size:' "$f" || true)
-  if [[ $size =~ ^Size:[[:space:]]*([0-9]+)[[:space:]]+hand-written[[:space:]]+files[[:space:]]*\([[:space:]]*\+[[:space:]]*[0-9]+[[:space:]]+generated\)[^0-9]*([0-9]+)[[:space:]]+RED ]]; then
+  size=$(grep -am1 '^Size:' "$f" || true)
+  if [[ $size =~ ^Size:[[:space:]]*([0-9]{1,6})[[:space:]]+hand-written[[:space:]]+files[[:space:]]*\([[:space:]]*\+[[:space:]]*[0-9]+[[:space:]]+generated\)[^0-9]*([0-9]{1,6})[[:space:]]+RED ]]; then
     h=${BASH_REMATCH[1]}; t=${BASH_REMATCH[2]}
   elif [ -n "$size" ]; then
     refuse "Size: must read \"<H> hand-written files (+ <G> generated) · <T> RED tests · one PR\" — got \"$size\""
   fi
   if [ -n "$h" ]; then
-    if ! grep -qE '^(Split line:|Exception:)' "$f" && { [ "$h" -ge 12 ] || [ "$t" -ge 4 ]; }; then
+    if ! grep -aqE '^(Split line:|Exception:)' "$f" && { [ "$h" -ge 12 ] || [ "$t" -ge 4 ]; }; then
       refuse "a task of $h files and $t RED tests needs a \"Split line:\" or an \"Exception:\" line"
     fi
-    if [ "$SIZE_CAP" != "-" ] && [ "$h" -gt "$SIZE_CAP" ] && ! grep -qE '^Exception:' "$f"; then
+    if [ "$SIZE_CAP" != "-" ] && [ "$h" -gt "$SIZE_CAP" ] && ! grep -aqE '^Exception:' "$f"; then
       refuse "Size: $h hand-written files is over size-cap: $SIZE_CAP, and no \"Exception:\" line licenses it"
     fi
   fi
@@ -138,7 +156,7 @@ validate_task_body() { # <assembled body file> <story as given>
     refuse "no task template at $(item_template task) to read the required sections from"
   fi
   for sec in "${sections[@]}"; do
-    if ! grep -qxF "$sec" "$f"; then refuse "section \"$sec\" is missing"
+    if ! grep -aqxF "$sec" "$f"; then refuse "section \"$sec\" is missing"
     elif ! section_has_text "$f" "$sec"; then refuse "section \"$sec\" is empty"; fi
   done
 
@@ -152,16 +170,16 @@ validate_task_body() { # <assembled body file> <story as given>
     if [ "$nf" != "$h" ]; then refuse "$files_h lists $nf files, Size: says $h"; fi
   fi
   if [ -n "$tests_h" ] && [ -n "$t" ]; then
-    nt=$(section_body "$f" "$tests_h" | { grep -cE '^[[:space:]]*[0-9]+\.' || true; })
+    nt=$(section_body "$f" "$tests_h" | { grep -acE '^[[:space:]]*[0-9]+\.' || true; })
     if [ "$t" -eq 0 ]; then
-      if ! section_body "$f" "$tests_h" | grep -qi 'test-free'; then
+      if ! section_body "$f" "$tests_h" | grep -aqi 'test-free'; then
         refuse "Size: says 0 RED tests, and $tests_h does not declare the task test-free"
       fi
     elif [ "$nt" != "$t" ]; then
       refuse "$tests_h lists $nt numbered tests, Size: says $t"
     fi
   fi
-  if [ -n "$proves_h" ] && ! section_body "$f" "$proves_h" | grep -qE 'AC[[:space:]]+[0-9]+'; then
+  if [ -n "$proves_h" ] && ! section_body "$f" "$proves_h" | grep -aqE 'AC[[:space:]]+[0-9]+'; then
     refuse "$proves_h names no criterion: it needs at least one \"AC <n>\" reference"
   fi
 
@@ -176,18 +194,20 @@ validate_story_body() { # <body file>
   local f=$1 sec last tl n want rows ph line
   REFUSALS=()
 
+  refuse_non_text "$f" || { verdict; return; }
+
   local -a sections=()
   mapfile -t sections < <(template_sections story)
   if [ ${#sections[@]} -eq 0 ]; then
     refuse "no story template at $(item_template story) to read the required sections from"
   fi
   for sec in "${sections[@]}"; do
-    if ! grep -qxF "$sec" "$f"; then refuse "section \"$sec\" is missing"; continue; fi
+    if ! grep -aqxF "$sec" "$f"; then refuse "section \"$sec\" is missing"; continue; fi
     if [ "$sec" = "## Tasks" ]; then
       if section_has_text "$f" "$sec"; then refuse "\"## Tasks\" must be empty: the adapter appends the checklist there"; fi
     elif ! section_has_text "$f" "$sec"; then refuse "section \"$sec\" is empty"; fi
   done
-  last=$({ grep -E '^## ' "$f" || true; } | tail -1)
+  last=$({ grep -aE '^## ' "$f" || true; } | tail -1)
   if [ -n "$last" ] && [ "$last" != "## Tasks" ]; then
     refuse "\"## Tasks\" must be the last section — got \"$last\""
   fi
@@ -221,7 +241,7 @@ validate_story_body() { # <body file>
   fi
   if [ -n "$pm_h" ]; then
     for n in "${ids[@]+"${ids[@]}"}"; do
-      rows=$(section_body "$f" "$pm_h" | { grep -cE "^[[:space:]]*\|[[:space:]]*$n[[:space:]]*\|" || true; })
+      rows=$(section_body "$f" "$pm_h" | { grep -acE "^[[:space:]]*\|[[:space:]]*$n[[:space:]]*\|" || true; })
       if [ "$rows" != 1 ]; then refuse "$pm_h has $rows rows for criterion $n, it needs exactly one"; fi
     done
   fi
