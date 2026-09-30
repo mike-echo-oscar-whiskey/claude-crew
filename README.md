@@ -29,11 +29,18 @@ Development from a checkout: `claude --plugin-dir ./plugins/crew`.
 | Work a task to a PR in a worktree | `/crew:work #15` |
 | Crew review of a PR | `/crew:review 40` |
 | Pick the next claimable task | `/crew:next` |
-| Board, with how many items still match the item shape | `/crew:status` (the count comes from `scripts/tracker.sh lint --all`, which only reads) |
+| Board, with how many items still match the item shape | `/crew:status` (the count comes from `scripts/tracker.sh lint --all --quiet`; `lint --all` is the per-item report behind it) |
 | Whole session as delivery lead | `/crew:on` … `/crew:off` (or `mode: always` in the profile) |
+
+`scripts/tracker.sh lint [<n> | --all | --kind story|task|bug|tech-debt] [--quiet]` is that report:
+it only reads the board, prints one line per item whose body no longer matches its kind's template
+naming each failing check, and exits 1 when any item fails.
 
 Second session on the same repo: `claude --worktree task-15`, then `/crew:next`. Claims are
 issue assignee + `in-progress` label + a claimed-by comment; `next` never offers a claimed task.
+
+`scripts/tracker.sh ensure-labels` mints the board's labels, the review severities `p1`, `p2` and
+`p3` among them, each carrying in its own description what that severity obliges.
 
 ## Roles
 

@@ -53,8 +53,8 @@ ensure_labels() {
   # at 100 characters, which is why these are the obligation's short form; its full text lives once, in
   # the review step. Both hold only for a finding that carries its reproduction.
   "${GH[@]}" label create p1 --color B60205 --description "Blocks: always fixed before the change is offered; a finding needs its reproduction" --force >/dev/null
-  "${GH[@]}" label create p2 --color D93F0B --description "Fixed here when this change caused it or made it reachable; else one line in the PR + its own item" --force >/dev/null
-  "${GH[@]}" label create p3 --color FEF2C0 --description "Recorded and scheduled; never blocks" --force >/dev/null
+  "${GH[@]}" label create p2 --color D93F0B --description "Fix in this change if it caused or exposed it; else one line in the PR + its own item" --force >/dev/null
+  "${GH[@]}" label create p3 --color FEF2C0 --description "Grouped into a planned task or its own item; never blocks" --force >/dev/null
   for r in "${ROLES[@]}"; do
     "${GH[@]}" label create "role:$r" --color BFD4F2 --description "Owned by the $r persona" --force >/dev/null
   done
@@ -379,6 +379,10 @@ lint() {
     *)       one=${1#"$SIGIL"}; shift
              [[ $one =~ ^[0-9]+$ ]] || { echo "lint takes [<n> | --all | --kind ${KINDS[*]}] [--quiet]" >&2; exit 1; } ;;
   esac; done
+  if [ -n "$one" ] && [ ${#kinds[@]} -gt 0 ]; then
+    # One target, named once: a number and a kind are two, and the number used to win in silence.
+    echo "lint takes one target, not both: [<n> | --all | --kind ${KINDS[*]}] [--quiet]" >&2; exit 1
+  fi
   for k in "${kinds[@]+"${kinds[@]}"}"; do
     case " ${KINDS[*]} " in *" $k "*) ;; *) echo "lint --kind takes one of: ${KINDS[*]} (got '$k')" >&2; exit 1 ;; esac
   done

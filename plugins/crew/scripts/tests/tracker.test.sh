@@ -382,8 +382,8 @@ fi
 #     characters, so the length is asserted here rather than discovered as a 422 against a real board.
 n4="ensure-labels creates p1, p2 and p3"
 d1='Blocks: always fixed before the change is offered; a finding needs its reproduction'
-d2='Fixed here when this change caused it or made it reachable; else one line in the PR + its own item'
-d3='Recorded and scheduled; never blocks'
+d2='Fix in this change if it caused or exposed it; else one line in the PR + its own item'
+d3='Grouped into a planned task or its own item; never blocks'
 labels_ok=1
 check_label() { # <name> <colour> <description>
   local line
@@ -417,6 +417,75 @@ if reported "$n5" 0 '1 conforming, 0 not'; then
     if [ "$rc" -ne 1 ]; then fail "$n5" "create must still refuse a filled ## Tasks, got exit $rc: $out"
     else pass "$n5"; fi
   fi
+fi
+
+# bug_body <name> [heading to drop] -> a bug body as the board holds it: every section the bug template
+# names, filled, minus the one named. `bug` and `tech-debt` have no header contract, so the sections and
+# the placeholder scan are the whole judgement and a dropped heading is the only failing check.
+bug_body() {
+  local name=$1 drop=${2:-} f="$tmp/$1.md"
+  {
+    echo 'Role: `agentic-ai-engineer` · design: none · found on the board, 2026-09-30'
+    echo
+    echo '## TL;DR'; echo
+    echo 'Claiming an item filed before the checks existed refuses instead of warning.'; echo
+    echo '## In one paragraph'; echo
+    echo 'The claim read the body, found it off-shape and exited, which turned every old item into a'
+    echo 'migration before any work could start.'; echo
+    echo '## Evidence'; echo
+    echo 'Claiming that item exits 3 and names no failing check.'; echo
+    echo '## Expected'; echo
+    echo 'The claim succeeds and the failing checks come back as warnings.'; echo
+    echo '## Files'; echo
+    echo '- `plugins/crew/scripts/tracker.sh` — the claim warns and still claims'; echo
+    echo 'Size: 1 hand-written files (+ 0 generated) · one PR'; echo
+    echo '## Tests (RED first)'; echo
+    echo '1. **RED** the claim against an off-shape body still assigns, labels and comments.'; echo
+    echo '## Done when'; echo
+    echo '- the witness is run bare and its exit code quoted'
+  } > "$f"
+  [ -n "$drop" ] && sed -i "/^$drop\$/d" "$f"
+  echo "$f"
+}
+
+# 12. D5 — one arm, two callers: a section that is present but blank is refused at create and reported by
+#     `lint`, because both read the same `check_sections`. Replacing that arm's condition with `false`
+#     left every case above green, which is why this one exists.
+n6="a blank section is refused at create and reported by lint"
+blankgoal=$(conforming_task L5)
+sed -i '/^Validate the assembled body in task_create before the create call\.$/d' "$blankgoal"
+boardblank="$blankgoal.board"
+{ echo 'Story: #1'; echo 'Blocked by: none'; echo; cat "$blankgoal"; } > "$boardblank"
+run "$p" -- task create --story 5 --title T --role agentic-ai-engineer --body-file "$blankgoal"
+if reported "$n6" 1 'refused: section "## Goal" is empty'; then
+  if [ -s "$ghlog" ]; then fail "$n6" "create reached the board anyway: $(head -1 "$ghlog")"
+  else
+    list_json task "15:$boardblank"
+    run "$p" -- lint --kind task
+    if reported "$n6" 1 '#15' 'section "## Goal" is empty' '0 conforming, 1 not'; then pass "$n6"; fi
+  fi
+fi
+
+# 13. D5, AC 6 — `lint --all` walks four kinds, and the two with no header contract go through
+#     `validate_plain_body`. Removing its `check_sections` call left every case above green, so one kind
+#     holds the shared arm here: a conforming bug passes, and the same body minus one template heading
+#     comes back with that heading named.
+n7="lint judges a bug against its own template's sections"
+list_json bug "20:$(bug_body B1)"
+run "$p" -- lint --kind bug
+if reported "$n7" 0 '1 conforming, 0 not'; then
+  list_json bug "21:$(bug_body B2 '## Expected')"
+  run "$p" -- lint --kind bug
+  if reported "$n7" 1 '#21' 'bug' 'section "## Expected" is missing' '0 conforming, 1 not'; then pass "$n7"; fi
+fi
+
+# 14. D6 — `lint` takes one target. A number and a kind name two, and the parse used to keep the number
+#     and drop the flag without a word, so a caller asking for a kind got one item's verdict instead.
+n8="lint refuses a number and --kind together instead of ignoring one"
+run "$p" -- lint 7 --kind task
+if reported "$n8" 1 'lint takes' 'not both'; then
+  if [ -s "$ghlog" ]; then fail "$n8" "the refusal still read the board: $(head -1 "$ghlog")"
+  else pass "$n8"; fi
 fi
 
 if [ "$fails" -eq 0 ]; then echo "PASS"; exit 0; fi
