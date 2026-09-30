@@ -119,17 +119,28 @@ make the real one visible:
   the model it dispatches on — `haiku · locate evidence for #371`, `fable/high · security review of
   PR #403` — so the model is on screen while the run is in flight, and an override shows the
   override.
-- **The transcript.** Every message in a subagent's JSONL records `"model":"<id>"`, so the model it
-  really used is provable after the fact. Rule 13 makes the lead grep it at every completion and
-  report a difference as a mismatch. The plugin's `SubagentStop` hook
-  (`scripts/subagent-model.sh`) does the same automatically, appending one line per completed
-  subagent — `<timestamp> <agent-type> declared=<persona model> actual=<model from the transcript>`,
-  plus `MISMATCH` when they disagree — to `crew-models.log` in the session's scratchpad;
-  `/crew:status` prints the last ten. The hook never fails a subagent: it exits 0 on every path and
-  writes nothing to stdout.
+- **The audit — this is the proof.** Every message in a subagent's JSONL records `"model":"<id>"`,
+  so the model a run really used is provable after the fact, and
+  `scripts/subagent-model.sh audit [<session-dir>]` proves it for a whole session at once. It walks
+  the session's `tasks/*.output` and prints one row per run — run id, role, the model the
+  **dispatch asked for**, the model or models that ran, call count, size — flagging `MISMATCH`
+  where those two disagree and `DISPATCH-CONFLICT` where a task title and an explicit `model`
+  argument named different models. The declared value is the dispatch's, resolved in that order:
+  the title's leading model token (the claim the user saw), then the `model` argument, then the
+  persona's `model:`. A run whose dispatch cannot be located prints `?` and is not counted as a
+  mismatch — an unknown is not a finding. It exits 1 when any row disagrees, so a caller can gate
+  on it. `/crew:status` and `/crew:work` step 8 print the table; rule 13 requires it at every task
+  boundary.
+
+The plugin's `SubagentStop` hook (the same script) appends a line per completed subagent to
+`crew-models.log` in the session's scratchpad, but it is **best-effort, not proof**: it can only
+report what the client's payload carries, and a payload with no `agent_type` and no
+`agent_transcript_path` leaves it resolving both from the session's own files — when it cannot, it
+records the payload's field *names* once so the next diagnosis is a read rather than a guess. It
+never fails a subagent: it exits 0 on every path and writes nothing to stdout.
 
 That matters most for the 429 fallback in rule 13: a verdict role re-issued a tier down is exactly
-the case where the user must be free to discount the verdict, and the log shows it happened.
+the case where the user must be free to discount the verdict, and the audit shows it happened.
 
 ## Layout
 

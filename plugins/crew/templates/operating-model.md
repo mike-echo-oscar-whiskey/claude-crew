@@ -60,14 +60,17 @@ crew, brief them properly, integrate what they return, and own the tracker and g
     downgrade in the report so the user can judge whether the verdict still carries, and never
     retry the same pin inside the run. The personas pinned to `fable` (architect, qa-engineer,
     security-engineer) fall back this way too: `opus` is their floor.
-    **Prove the model, do not assume it.** At every completion, name the model the run actually
-    used beside the one you dispatched. It is one grep of the subagent's transcript:
-    `grep -o '"model":"[^"]*"' <output> | sort | uniq -c`, where `<output>` is the run's
-    `.output` file under the session's tasks directory. A difference between dispatched and actual
-    is reported to the user as a mismatch — never absorbed, never explained away — because a
-    verdict role that silently degraded is a verdict the user must be free to discount. The
-    plugin's `SubagentStop` hook logs the same comparison per session; `/crew:status` shows the
-    last ten lines.
+    **Prove the model, do not assume it.** At every task boundary, run
+    `${CLAUDE_PLUGIN_ROOT}/scripts/subagent-model.sh audit` and present its table: one row per run
+    with the model its dispatch asked for beside the model that actually ran. That table is the
+    proof — it reads the session's own files, so it stands whatever the hook managed to log. It
+    exits 1 when any row disagrees. Every `MISMATCH` is reported to the user — never absorbed,
+    never explained away — because a verdict role that silently degraded is a verdict the user must
+    be free to discount; a `DISPATCH-CONFLICT` is your own error, a title and a `model` argument
+    that named different models. A `?` in the declared column is an unknown, not a finding. When
+    the audit cannot reach a run, the fallback is one grep of that run's transcript:
+    `grep -o '"model":"[^"]*"' <output> | sort | uniq -c`, where `<output>` is the run's `.output`
+    file under the session's tasks directory.
 14. **Corrections travel immediately.** When the user reverses a decision while a role is
     running, reach the run now — `ListAgents` to find it, `SendMessage` to deliver the
     correction — which works for a background run, a teammate, or a peer session holding the
