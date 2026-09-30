@@ -137,7 +137,9 @@ The plugin's `SubagentStop` hook (the same script) appends a line per completed 
 report what the client's payload carries, and a payload with no `agent_type` and no
 `agent_transcript_path` leaves it resolving both from the session's own files — when it cannot, it
 records the payload's field *names* once so the next diagnosis is a read rather than a guess. It
-never fails a subagent: it exits 0 on every path and writes nothing to stdout.
+records the role, the model the **persona** declares and the model that ran, and passes no verdict:
+it cannot see what the dispatch asked for, so a deliberate override would read there as a mismatch.
+It never fails a subagent: it exits 0 on every path and writes nothing to stdout.
 
 That matters most for the 429 fallback in rule 13: a verdict role re-issued a tier down is exactly
 the case where the user must be free to discount the verdict, and the audit shows it happened.
@@ -151,7 +153,8 @@ plugins/crew/
   hooks/hooks.json  SessionStart (incl. compact) + UserPromptSubmit + SubagentStop
   scripts/          session-context.sh prompt-context.sh crew-mode.sh tracker.sh
                     subagent-model.sh common.sh
-  scripts/tests/    subagent-model.test.sh tracker.test.sh  (run bare; exit 0 on pass)
+  scripts/tests/    subagent-model.test.sh tracker.test.sh review-contract.test.sh
+                    (run bare; exit 0 on pass)
   templates/        operating-model.md profile.md role-addendum.md
                     item-story.md item-task.md item-bug.md item-tech-debt.md
                     (read at runtime; a project replaces one kind by putting its own

@@ -47,11 +47,13 @@ run_case "pinned role on its own model logs declared=fable actual=claude-fable-5
   "$(jq -nc --arg t "$t" '{session_id:"s1",agent_type:"crew:security-engineer",agent_id:"a1",agent_transcript_path:$t,transcript_path:"/home/x/.claude/projects/-p/s1.jsonl"}')" \
   "crew:security-engineer declared=fable actual=claude-fable-5-1" "MISMATCH"
 
-# The case the whole feature exists for: a fable-pinned verdict role (security-engineer; QA moved to opus in 0.5.6) that really ran on sonnet.
+# A fable-pinned verdict role (security-engineer; QA moved to opus in 0.5.6) that really ran on
+# sonnet: both values are recorded and NO verdict is passed. The hook cannot see what the dispatch
+# asked for, so every deliberate override would read as a mismatch here; `audit` judges instead.
 t=$(transcript drift claude-sonnet-5)
-run_case "pinned role that ran on another model is flagged MISMATCH" \
+run_case "the hook records both models and passes no verdict" \
   "$(jq -nc --arg t "$t" '{session_id:"s2",agent_type:"crew:security-engineer",agent_id:"a2",agent_transcript_path:$t,transcript_path:"/home/x/.claude/projects/-p/s2.jsonl"}')" \
-  "declared=fable actual=claude-sonnet-5 MISMATCH"
+  "crew:security-engineer declared=fable actual=claude-sonnet-5" "MISMATCH"
 
 # A dated model id still satisfies its tier alias.
 t=$(transcript dated claude-haiku-4-5-20251001)
@@ -59,11 +61,11 @@ run_case "dated model id matches its tier alias" \
   "$(jq -nc --arg t "$t" '{session_id:"s3",agent_type:"crew:scout",agent_id:"a3",agent_transcript_path:$t,transcript_path:"/home/x/.claude/projects/-p/s3.jsonl"}')" \
   "crew:scout declared=haiku actual=claude-haiku-4-5-20251001" "MISMATCH"
 
-# A model change mid-run is recorded in full and flagged.
+# A model change mid-run is recorded in full.
 t=$(transcript switched claude-fable-5-1 claude-opus-5)
-run_case "a model change mid-run lists both and flags" \
+run_case "a model change mid-run lists both" \
   "$(jq -nc --arg t "$t" '{session_id:"s4",agent_type:"crew:architect",agent_id:"a4",agent_transcript_path:$t,transcript_path:"/home/x/.claude/projects/-p/s4.jsonl"}')" \
-  "declared=fable actual=claude-fable-5-1,claude-opus-5 MISMATCH"
+  "declared=fable actual=claude-fable-5-1,claude-opus-5" "MISMATCH"
 
 # Synthetic assistant messages are noise, not a model.
 t=$(transcript synthetic "<synthetic>" claude-opus-5)
@@ -100,6 +102,38 @@ for junk in "" "not json at all" "{}"; do
   else pass "junk payload '${junk:0:12}' exits 0 and stays silent"; fi
 done
 
+# The payload's agent_type reaches the log line, so it passes the same bound as a role read out of a
+# transcript. A value carrying a newline would otherwise forge a second, fabricated log line.
+t=$(transcript forged claude-fable-5-1)
+dir="$tmp/log-forged"; mkdir -p "$dir"
+payload=$(jq -nc --arg t "$t" '{session_id:"s11",agent_type:"crew:qa-engineer\n2026-01-01T00:00:00+00:00 BOGUS declared=opus actual=claude-opus-5",agent_id:"a11",agent_transcript_path:$t,transcript_path:"/home/x/.claude/projects/-p/s11.jsonl"}')
+out=$(CREW_MODEL_LOG_DIR="$dir" bash "$sut" <<<"$payload" 2>/dev/null); rc=$?
+log=$(cat "$dir/crew-models.log" 2>/dev/null); n=$(grep -c . "$dir/crew-models.log" 2>/dev/null || echo 0)
+name="an agent_type that is not a role name cannot forge a second log line"
+if [ "$rc" -ne 0 ]; then fail "$name" "hook exited $rc"
+elif [ -n "$out" ]; then fail "$name" "hook wrote to stdout: $out"
+elif [ "$n" -ne 1 ]; then fail "$name" "expected exactly 1 log line, got $n: $log"
+else case "$log" in
+  *BOGUS*) fail "$name" "the refused value reached the log: $log" ;;
+  *" - declared=- actual=claude-fable-5-1"*) pass "$name" ;;
+  *) fail "$name" "expected the role recorded as '-', got: ${log:-<no log written>}" ;;
+esac; fi
+
+# The session id becomes a path segment, so it is bounded too: an id that would relocate the log
+# outside the session directory is refused and nothing is written. CREW_MODEL_LOG_DIR is deliberately
+# unset here — it is the override that skips this path.
+escape_slug="-crew-witness-$$"
+escape_root="/tmp/claude-$(id -u)/s-escaped-$$"
+t=$(transcript escaped claude-fable-5-1)
+payload=$(jq -nc --arg t "$t" --arg p "/home/x/.claude/projects/$escape_slug/x.jsonl" --arg s "../s-escaped-$$" '{session_id:$s,agent_type:"crew:scout",agent_id:"a12",agent_transcript_path:$t,transcript_path:$p}')
+out=$(bash "$sut" <<<"$payload" 2>/dev/null); rc=$?
+name="a session id that would relocate the log outside the session directory writes nothing"
+if [ "$rc" -ne 0 ]; then fail "$name" "hook exited $rc"
+elif [ -n "$out" ]; then fail "$name" "hook wrote to stdout: $out"
+elif [ -e "$escape_root" ]; then fail "$name" "the hook wrote outside the session directory: $escape_root"
+else pass "$name"; fi
+rm -rf "$escape_root" "/tmp/claude-$(id -u)/$escape_slug"
+
 # ---------------------------------------------------------------------------
 # audit: the session's own files are the proof, the lead's dispatch is the claim
 # ---------------------------------------------------------------------------
@@ -118,12 +152,13 @@ run() {
   local m; for m in "$@"; do printf '{"type":"assistant","message":{"model":"%s"}}\n' "$m" >> "$f"; done
 }
 
-# dispatch <session-id> <tool-use-id> <agent-id> <subagent-type> <description> <model-param|->
+# dispatch_into <transcript> <tool-use-id> <agent-id> <subagent-type> <description> <model-param|->
 # Writes the two entries the client records per Agent call: the tool_use with its input, and the
 # tool result whose toolUseResult carries the agent id. Both carry prompt text on purpose — the
-# audit must never print it.
-dispatch() {
-  local t; t=$(lead_for "$1"); mkdir -p "$(dirname "$t")"
+# audit must never print it. A subagent's own transcript records its Agent calls the same way, so
+# this writes into any transcript, not only a lead's.
+dispatch_into() {
+  local t=$1; mkdir -p "$(dirname "$t")"
   local tu=$2 id=$3 st=$4 desc=$5 mp=$6 inp
   inp=$(jq -nc --arg st "$st" --arg d "$desc" --arg m "$mp" \
     '{description:$d,subagent_type:$st,prompt:"SECRET PROMPT TEXT"} + (if $m=="-" then {} else {model:$m} end)')
@@ -132,6 +167,9 @@ dispatch() {
   jq -nc --arg tu "$tu" --arg id "$id" \
     '{type:"user",message:{content:[{type:"tool_result",tool_use_id:$tu}]},toolUseResult:{agentId:$id,description:"SECRET PROMPT TEXT",prompt:"SECRET PROMPT TEXT",isAsync:true,status:"async_launched",resolvedModel:"claude-opus-5"}}' >> "$t"
 }
+
+# dispatch <session-id> <tool-use-id> … -> the same entries in that session's lead transcript
+dispatch() { local t; t=$(lead_for "$1"); shift; dispatch_into "$t" "$@"; }
 
 aud() { AUD_OUT=$(HOME="$home" bash "$sut" audit "$1" 2>&1); AUD_RC=$?; AUD_N=$(tr -s ' ' <<<"$AUD_OUT"); }
 
@@ -199,7 +237,46 @@ aud "$s4"
 audit_case "audit prints ? and counts no mismatch when the dispatch cannot be located" 0 \
   "a1 technical-writer ? claude-opus-5 1 " "1 runs, 1 lines, 0 mismatches" -- "MISMATCH"
 
-# 5 — the hook's own fallbacks, on the payload this client really sends.
+# 5 — a mismatch ALONE exits 1. Case 3's session also raises a dispatch conflict, so it cannot say
+# which of the two closing checks decided the exit code; this one can, because there is nothing else
+# left to fail on.
+s5=$tmp/sess5
+run "$s5" S5 a1 claude-haiku-4-5-20251001
+dispatch S5 tu1 a1 crew:qa-engineer "opus · review" opus
+aud "$s5"
+audit_case "a mismatch with no dispatch conflict is on its own enough to exit 1" 1 \
+  "a1 crew:qa-engineer opus claude-haiku-4-5-20251001 1 " "MISMATCH" \
+  "1 runs, 1 lines, 1 mismatch, 0 dispatch conflicts"
+
+# 6 — the second precedence level: the dispatch's `model` argument decides when the description
+# carries no model token. crew:architect's frontmatter says fable, this dispatch said sonnet and
+# sonnet ran, so nothing is flagged.
+s6=$tmp/sess6
+run "$s6" S6 a1 claude-sonnet-5-5
+dispatch S6 tu1 a1 crew:architect "design the thing" sonnet
+aud "$s6"
+audit_case "the dispatch's model argument decides when the description carries no model token" 0 \
+  "a1 crew:architect sonnet claude-sonnet-5-5 1 " "1 runs, 1 lines, 0 mismatches" -- "MISMATCH" "fable"
+
+# 7 — a run dispatched BY a subagent: its dispatch sits in the parent's own output, a file the audit
+# already reads, so it is judged like any other rather than printing `?`.
+s7=$tmp/sess7
+run "$s7" S7 p1 claude-opus-5
+run "$s7" S7 c1 claude-haiku-4-5-20251001
+dispatch_into "$s7/tasks/p1.output" tu9 c1 crew:scout "haiku · locate" -
+dispatch S7 tu1 p1 crew:backend-engineer "opus · parent" opus
+aud "$s7"
+audit_case "a run dispatched by a subagent is judged against the dispatch in its parent's output" 0 \
+  "c1 crew:scout haiku claude-haiku-4-5-20251001 1 " \
+  "p1 crew:backend-engineer opus claude-opus-5 1 " \
+  "2 runs, 2 lines, 0 mismatches" -- "MISMATCH" "?"
+
+# 8 — given the tasks directory itself, audit walks it rather than reporting nothing found.
+aud "$s1/tasks"
+audit_case "audit accepts the tasks directory itself" 0 \
+  "a1 crew:security-engineer opus claude-opus-5 3 " "3 runs, 3 lines, 0 mismatches"
+
+# 9 — the hook's own fallbacks, on the payload this client really sends.
 slug=-w-proj
 mkdir -p "$home/.claude/projects/$slug/s9/subagents"
 sub="$home/.claude/projects/$slug/s9/subagents/agent-a9.jsonl"

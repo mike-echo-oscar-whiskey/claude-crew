@@ -51,9 +51,17 @@ subagent_transcript_for() {
   return 0
 }
 
-# log_dir_for <session-id> <project-slug> -> the session-local directory to log into
+# path_segment <value> -> 0 when the value is safe to use as ONE path segment
+# The session id and the project slug are client-supplied and both become directory names below, so
+# one bound covers both. It refuses rather than sanitising: a log written somewhere unexpected — an
+# id carrying `../` relocates it out of the session directory — is worse than a log not written.
+path_segment() { case "${1:-}" in ""|.|..|*[!A-Za-z0-9._-]*) return 1 ;; esac; return 0; }
+
+# log_dir_for <session-id> <project-slug> -> the session-local directory to log into, or "" when
+# either id fails the bound above
 log_dir_for() {
   if [ -n "${CREW_MODEL_LOG_DIR:-}" ]; then echo "$CREW_MODEL_LOG_DIR"; return 0; fi
+  path_segment "$1" && path_segment "$2" || return 0
   local base="/tmp/claude-$(id -u)/$2/$1"
   if [ -d "$base/scratchpad" ]; then echo "$base/scratchpad"
   elif [ -d "$base/tasks" ]; then echo "$base/tasks"
@@ -82,13 +90,28 @@ declared_model_for() {
   echo "${m:--}"
 }
 
+# THE bound on a role name, and the only one: both readers below use it. A role reaches a log line,
+# so a role the payload merely claims passes the same bound as one read out of a transcript, rather
+# than a second pattern saying the same thing.
+role_bound='[A-Za-z][A-Za-z0-9-]\{2,40\}'
+
 # role_from_transcript <transcript> -> the brief's own first "Role: <name>" line, or "-"
 # Every crew brief starts with one, so it answers for a payload that carries no agent_type.
 role_from_transcript() {
   [ -n "${1:-}" ] && [ -r "$1" ] || { echo "-"; return 0; }
   local r
-  r=$(grep -o 'Role: `\{0,1\}[a-z][a-z0-9-]\{2,40\}' "$1" 2>/dev/null | head -1 | sed 's/^Role: `\{0,1\}//')
+  r=$(grep -o "Role: \`\{0,1\}$role_bound" "$1" 2>/dev/null | head -1 | sed 's/^Role: `\{0,1\}//')
   echo "${r:--}"
+}
+
+# bounded_role <candidate> -> the candidate when it is a role name, else "-"
+# agent_type arrives plugin-scoped ("crew:qa-engineer"), so one optional scope segment is allowed.
+# grep -z makes the whole value one record, so a newline cannot end it and forge a second log line.
+# Refused rather than trimmed: a value this script cannot recognise as a role is not one.
+bounded_role() {
+  printf '%s' "${1:-}" | grep -qzx "\($role_bound:\)\{0,1\}$role_bound" \
+    && { printf '%s\n' "$1"; return 0; }
+  echo "-"
 }
 
 # model_lines_of <transcript> -> one model id per assistant message (duplicates kept, for a count)
@@ -174,16 +197,24 @@ run_hook() {
     transcript=$(subagent_transcript_for "$sid" "$slug" "$agent_id")
   fi
 
-  # Fallback for a payload carrying no agent_type: the brief's own Role: line.
-  local role=${agent_type:-}
-  [ -n "$role" ] || role=$(role_from_transcript "$transcript")
+  # Fallback for a payload carrying no agent_type: the brief's own Role: line. A role the payload
+  # claims passes the same bound as one read out of a transcript, because both reach the log line.
+  local role
+  role=$(bounded_role "${agent_type:-}")
+  [ "$role" = "-" ] && role=$(role_from_transcript "$transcript")
 
-  local declared actual flag dir
+  # The hook records the role, the model the PERSONA declares and the model that ran — and passes no
+  # verdict. The verdict belongs to `audit`, because only `audit` can see what the dispatch asked
+  # for, and every deliberate override disagrees with the persona's default: a flag that calls a
+  # thing wrong when it is right is worse than no flag. The dispatch lookup is deliberately NOT
+  # moved in here — it is a jq pass over a lead transcript that reaches tens of megabytes, and this
+  # hook runs inside a 10-second budget several hundred times a session.
+  local declared actual dir
   declared=$(declared_model_for "$role")
   actual=$(actual_models_for "$transcript")
-  flag=$(mismatch_for "$declared" "$actual")
   dir=$(log_dir_for "${sid:-unknown}" "$slug")
 
+  [ -n "$dir" ] || return 0
   mkdir -p "$dir" 2>/dev/null || return 0
 
   # Recorded failure: when the payload named no agent type, or the transcript could not be resolved
@@ -197,8 +228,8 @@ run_hook() {
     fields=$(jq -r 'if type=="object" then (keys_unsorted | join(",")) else empty end' <<<"$input" 2>/dev/null)
   fi
 
-  printf '%s %s declared=%s actual=%s%s%s\n' \
-    "$(date -Is)" "${role:--}" "$declared" "$actual" "${flag:+ $flag}" "${fields:+ fields=$fields}" \
+  printf '%s %s declared=%s actual=%s%s\n' \
+    "$(date -Is)" "${role:--}" "$declared" "$actual" "${fields:+ fields=$fields}" \
     >> "$dir/$log_name" 2>/dev/null
 
   return 0
@@ -240,6 +271,11 @@ run_audit() {
   command -v jq >/dev/null 2>&1 || { echo "audit needs jq" >&2; return 2; }
   local dir=${1:-}
   [ -n "$dir" ] || dir=$(session_dir_for_pwd)
+  # Given the tasks directory itself rather than the session directory — the call a reader reaches
+  # for, since that is where the outputs are — walk it instead of reporting nothing found.
+  case "${dir%/}" in
+    */tasks) [ -d "${dir%/}" ] && dir=$(dirname "${dir%/}") ;;
+  esac
   if [ -z "$dir" ] || [ ! -d "$dir/tasks" ]; then
     echo "no subagent runs found${dir:+ under $dir}"
     return 0
@@ -271,13 +307,23 @@ run_audit() {
     done < <(sort -u "$work/leads")
   fi
 
+  # A run can be dispatched BY a subagent, and that dispatch is recorded in the parent's own output —
+  # a file this audit already opens. Index every transcript it reads, so such a run is judged instead
+  # of printing `?`. These are hundreds of kilobytes each, not tens of megabytes, and the lead's pass
+  # ran first, so a lead's record still wins on an id both name.
+  while IFS=$'\t' read -r id f; do
+    dispatch_index "$f" >> "$work/dispatch"
+  done < "$work/runs"
+
   echo "$dir/tasks"
   printf '%-18s %-28s %-10s %-34s %5s %9s  %s\n' RUN ROLE DECLARED ACTUAL CALLS SIZE FLAG
 
-  local runs=0 lines=0 mismatches=0 conflicts=0
+  # The runs are counted from the file, before the loop that prints them: a row count compared
+  # against a number the same loop produced would be equal by construction and prove nothing.
+  local runs lines=0 mismatches=0 conflicts=0
+  runs=$(grep -c . "$work/runs")
   local path role token param declared actual calls size flag d_tok d_par hit m
   while IFS=$'\t' read -r id path; do
-    runs=$((runs + 1))
     hit=$(awk -F'\t' -v i="$id" '$1==i {printf "%s\t%s\t%s", $2, $3, $4; exit}' "$work/dispatch")
     role=- token=- param=-
     [ -n "$hit" ] && IFS=$'\t' read -r role token param <<<"$hit"
