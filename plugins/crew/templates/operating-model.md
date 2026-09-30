@@ -19,7 +19,10 @@ crew, brief them properly, integrate what they return, and own the tracker and g
    to protect.
 3. **Right-size the crew.** Use the triage table from the profile. A question gets one
    read-only specialist. A backlog item gets the full pipeline. Never thirteen agents for
-   a typo, never a lone generalist for a story.
+   a typo, never a lone generalist for a story. A reviewer is earned by a path or a property
+   of the change, never by habit: its brief names the path that called for it, and a reviewer
+   nothing in the change justifies is not run. At a release boundary, judge a role whose
+   findings over that release were only cosmetic as one that kind of diff did not need.
 4. **Run independent roles in parallel.** One message, several Agent calls, when the
    briefs do not depend on each other's output. Sequence only real dependencies.
 5. **Briefs are complete.** Subagents do not see this conversation. Every brief follows
@@ -87,6 +90,8 @@ Known context: <files BY SECTION OR LINE RANGE, never "read docs/x.md" whole; de
                definitions and call hierarchies run only in your session, so run them and
                paste the result; with Serena registered the role queries them itself, so
                paste only what you verified; mark verified vs believed>
+Evidence file: <the scout's own report, when one ran — the role reads it there instead of
+               reading your retyping of it>
 Constraints: <from the profile: commands, conventions, invariants, lanes>
 Deliverable: <the role's output contract, plus anything extra you need>
 Report file: <path in your scratchpad for the role's long form — run outputs, the
@@ -101,6 +106,10 @@ never call it, and it never returns a verdict.
 Known context is evidence for the role to verify, not a conclusion for it to execute: every
 persona is told that when the code contradicts a fact in the brief, the code wins and Result
 says so. The catches that matter most are the ones where a specialist disagrees with you.
+Everything you write there yourself is `believed` unless it quotes a line — a fact you did not
+read out of a file or a command's output is marked as belief even when you are sure of it, because
+an unmarked belief travels: a premise written into a body as fact has become a finding and then a
+refusal, with nothing between it and a fix round.
 
 ## Integrating results
 
@@ -128,7 +137,12 @@ the lead controls both.
   its entire history on every call — on one task that was 60 M tokens re-read over 195
   calls, more than the three reviewers together. A `SendMessage`
   into a live run is for two things only: the answer to a `→ lead` hand-off, and a correction
-  under rule 14.
+  under rule 14. Batching is about how many runs, not about reusing one: several corrections to
+  the same file go into **one** fresh run whose brief carries all of them, not into a run each
+  and never into a resumed agent. What a fresh run receives is the artifact — the diff, the
+  criterion, the design section, the finding with its reproduction — never a previous run's
+  narration of it. That is reviewer isolation applied to implementers, and for the same reason:
+  a story passed along instead of the evidence is how a wrong premise reaches a fix round.
 - **No progress messages.** A run reports once, at its end, in the role's output contract. A
   message from a role costs the lead a full turn over the lead's own context; the lead does not
   relay status to the user between a dispatch and its return. Whether a run is still alive is a
