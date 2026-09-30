@@ -7,13 +7,13 @@
 ## TL;DR
 
 <One or two sentences. Who gets what, in the words a customer would use. No type names, no file
-paths, no item numbers, no "the platform" where "we" will do. If it cannot be written without one,
-the item is scoped wrong — say that in the body instead of writing it.>
+paths, no item numbers, no "the platform" where "we" is plain. If it cannot be written without one,
+the item is scoped wrong. Say so in the body instead.>
 
 ## Why it matters
 
 <At most four lines: who is hurt today, what it costs them or us, what they can do afterwards that
-they cannot do now. This is the section that wins or loses a scope argument — nothing technical.>
+they cannot do now. This section decides whether the work is worth doing. Nothing technical.>
 
 ## Today, in detail
 
@@ -24,8 +24,8 @@ Decision: <who, date, the sentence they settled>.
 
 <This line repeats: one Decision: line per settled decision, in the order they were settled, never
 merged into a paragraph and never summarised into one. A story carrying six or eight of them is normal;
-a reader must be able to point at the line that settles the argument they are about to reopen. Nothing
-here is re-litigated later in the body.>
+a reader must be able to point at the line that settles the argument they are about to reopen. Do not
+reopen a settled decision later in the body.>
 
 ## Acceptance criteria
 

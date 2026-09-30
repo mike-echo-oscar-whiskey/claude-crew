@@ -30,11 +30,11 @@ Size: <H> hand-written files (+ <G> generated) · one PR
 
 ## Tests (RED first)
 
-1. **RED** <the witness that fails on today's code>
+1. **RED** <the test that fails on today's code>
 
 ## Done when
 
-- The witness is green and was red first, both quoted
+- The test is green and was red first, both runs quoted
 - <the specific observation that proves it on the deploy target, when the bug is only visible there>
 - <named reviewers beyond the project's default>
 

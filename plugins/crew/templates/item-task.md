@@ -10,10 +10,11 @@ Blocked by: <refs, or "none">
 Role: `<crew role>` · design: `<profile:designs><slug>` <sections, or "none">
 Size: <H> hand-written files (+ <G> generated) · <T> RED tests · one PR
 Split line: <the seam this task is cut at if it grows past the cap (<profile:size-cap>) — which files and which criteria
-            go to the follow-up. "n/a — the cap holds with room" is a valid answer. Replace this
-            line with "Exception: <reason> — <H> files, no behaviour change; reviewed as one sweep."
-            only for a mechanical sweep provable by a search that afterwards returns nothing, or a
-            regenerated set that must land with its generator to keep the tree buildable.>
+            go to the follow-up. "n/a — the cap holds with room" is a valid answer. When the profile
+            declares no size cap, Size is still counted. Replace this line with "Exception: <reason> —
+            <H> files, no behaviour change; reviewed as one sweep." only for a mechanical sweep
+            provable by a search that afterwards returns nothing, or a regenerated set that must land
+            with its generator to keep the tree buildable.>
 
 ## TL;DR
 

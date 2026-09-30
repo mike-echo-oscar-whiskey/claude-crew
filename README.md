@@ -136,8 +136,8 @@ plugins/crew/
   scripts/tests/    subagent-model.test.sh  (run bare; exits 0 on pass)
   templates/        operating-model.md profile.md role-addendum.md
                     item-story.md item-task.md item-bug.md item-tech-debt.md
-                    (read at runtime; a project overrides one kind whole at
-                     .claude/crew/items/<kind>.md)
+                    (read at runtime; a project replaces one kind by putting its own
+                     complete copy at .claude/crew/items/<kind>.md)
 ```
 
 Tracker backend: GitHub via `gh` today. `tracker: azure-devops …` is recognised and refused

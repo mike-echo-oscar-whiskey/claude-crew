@@ -9,8 +9,8 @@ tracker: github <owner>/<repo>     # or: azure-devops <org> <project>  (not impl
 default-branch: main
 branch-pattern: task/{number}-{slug}
 designs: docs/design/     # where /crew:plan writes technical designs (linked from the story)
-generated: <glob>, <glob>          # paths no human reviews line by line; absent or "-": every changed file counts
-size-cap: 15                       # hand-written files one task may touch; absent: 15; "-" drops the refusal, never the Size: line
+generated: <glob>, <glob>          # paths no human reviews line by line; absent or "-": every changed file counts toward the size cap
+size-cap: 15                       # most hand-written files one task may touch; absent: 15; "-": no limit, but the Size: line is still written
 definition-of-done: <path or section name>   # absent: this file's own "Definition of done" section
 merge-authority: <who may merge>   # absent: the author
 
