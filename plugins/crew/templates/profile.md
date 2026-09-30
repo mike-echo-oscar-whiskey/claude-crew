@@ -9,6 +9,10 @@ tracker: github <owner>/<repo>     # or: azure-devops <org> <project>  (not impl
 default-branch: main
 branch-pattern: task/{number}-{slug}
 designs: docs/design/     # where /crew:plan writes technical designs (linked from the story)
+generated: <glob>, <glob>          # paths no human reviews line by line; absent or "-": every changed file counts
+size-cap: 15                       # hand-written files one task may touch; absent: 15; "-" drops the refusal, never the Size: line
+definition-of-done: <path or section name>   # absent: this file's own "Definition of done" section
+merge-authority: <who may merge>   # absent: the author
 
 ## Stack bindings (one line per role; "disabled" turns a role off for this project)
 
