@@ -32,8 +32,8 @@ technical-writer: README.md (Install, Using it, Roles, Model per role, Layout) m
 
 build:   -
 clients: -
-test:    bash plugins/crew/scripts/tests/subagent-model.test.sh
-gates:   claude plugin validate . && for f in plugins/crew/scripts/*.sh plugins/crew/scripts/tests/*.sh; do bash -n "$f" || exit 1; done && jq empty .claude-plugin/marketplace.json plugins/crew/.claude-plugin/plugin.json plugins/crew/hooks/hooks.json && bash plugins/crew/scripts/tests/subagent-model.test.sh
+test:    bash plugins/crew/scripts/tests/subagent-model.test.sh && bash plugins/crew/scripts/tests/tracker.test.sh
+gates:   claude plugin validate . && for f in plugins/crew/scripts/*.sh plugins/crew/scripts/tests/*.sh; do bash -n "$f" || exit 1; done && jq empty .claude-plugin/marketplace.json plugins/crew/.claude-plugin/plugin.json plugins/crew/hooks/hooks.json && bash plugins/crew/scripts/tests/subagent-model.test.sh && bash plugins/crew/scripts/tests/tracker.test.sh
 deploy:  -
 
 Gates grow with the repo: when a Codex layout lands, its validation joins the gate line. The first

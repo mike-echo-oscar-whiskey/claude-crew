@@ -133,7 +133,7 @@ plugins/crew/
   hooks/hooks.json  SessionStart (incl. compact) + UserPromptSubmit + SubagentStop
   scripts/          session-context.sh prompt-context.sh crew-mode.sh tracker.sh
                     subagent-model.sh common.sh
-  scripts/tests/    subagent-model.test.sh  (run bare; exits 0 on pass)
+  scripts/tests/    subagent-model.test.sh tracker.test.sh  (run bare; exit 0 on pass)
   templates/        operating-model.md profile.md role-addendum.md
                     item-story.md item-task.md item-bug.md item-tech-debt.md
                     (read at runtime; a project replaces one kind by putting its own
