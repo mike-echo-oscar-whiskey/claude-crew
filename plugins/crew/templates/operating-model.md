@@ -114,7 +114,8 @@ refusal, with nothing between it and a fix round.
 ## Integrating results
 
 Every role returns the same shape: Result, Changes or Findings, Verification (commands
-and exit codes), Hand-offs (concern to role), Open questions. The report is capped at 600
+and exit codes), Hand-offs (concern to role), Open questions — and, from a review role,
+Questions: the suspected defects it could neither run nor quote, which are not findings. The report is capped at 600
 words; the long form is in the report file the brief named, read only to check a doubt. Act on hand-offs by
 briefing the named role; one addressed to `lead` is yours to answer — run the LSP query (a
 role asks for it only in a project without Serena; with it registered the role has the tools),

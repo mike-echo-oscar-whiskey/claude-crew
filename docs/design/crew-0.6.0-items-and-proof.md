@@ -327,7 +327,8 @@ findings format, the task's `## Done when` as the hard boundary, and the mandate
 stated criteria; everything else is optional". May **not** contain: the implementer's report, the
 lead's summary or narrative of what changed, the PR body's summary, or an earlier round's findings.
 `skills/review/SKILL.md` step 2 and `skills/work/SKILL.md` step 4 state the prohibition, not a
-permission, and A1's witness asserts each forbidden section absent by name.
+permission, and `plugins/crew/scripts/tests/review-contract.test.sh` — filed with this item, not with
+the templates story — asserts that both name every forbidden item and call the list a prohibition.
 
 The evidence, all in `docs/design/crew-0.6.0-research.md`: a fresh-session reviewer scores F1 28.6 % against
 24.6 % for self-review and 21.7 % for a second self-review in the same session, p ≤ 0.008
