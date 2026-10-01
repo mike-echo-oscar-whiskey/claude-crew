@@ -5,15 +5,15 @@
 # `.`, `—` and `TBD` are refused), the rule that moves a tier is stated exactly once in the tree, and
 # every roster row names a persona file that exists, so a row cannot outlive its persona. Run it
 # bare:
-#   bash plugins/crew/scripts/tests/model-roster.test.sh
+#   bash tests/model-roster.test.sh
 # Exits 0 when every case passes, 1 when the roster and the frontmatter have drifted apart in either
 # direction, a reason is a placeholder, or the moving rule is stated zero times or more than once,
 # and names the case either way.
 set -u
 
 here=$(cd "$(dirname "$0")" && pwd)
-crew=$(cd "$here/../.." && pwd)
-root=$(cd "$crew/../.." && pwd)
+root=$(cd "$here/.." && pwd)
+crew="$root/plugins/crew"
 readme="$root/README.md"
 agents="$crew/agents"
 fails=0

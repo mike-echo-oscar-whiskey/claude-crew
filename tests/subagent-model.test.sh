@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 # Witness for subagent-model.sh: canned SubagentStop payloads + canned transcripts in, one
-# asserted log line out. Run it bare:  bash plugins/crew/scripts/tests/subagent-model.test.sh
+# asserted log line out. Run it bare:  bash tests/subagent-model.test.sh
 # Exits 0 when every case passes, 1 on the first failure, and names the case either way.
 set -u
 
 here=$(cd "$(dirname "$0")" && pwd)
-sut="$here/../subagent-model.sh"
+root=$(cd "$here/.." && pwd)
+crew="$root/plugins/crew"
+sut="$crew/scripts/subagent-model.sh"
 tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
 fails=0
 

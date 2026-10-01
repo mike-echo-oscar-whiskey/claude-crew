@@ -21,7 +21,7 @@ genai-engineer: disabled
 agentic-ai-engineer: owns the 17 personas in plugins/crew/agents/, the skills in plugins/crew/skills/, hooks/hooks.json, the templates and every bash script in plugins/crew/scripts/ (there is no backend-engineer here); see roles/agentic-ai-engineer.md
 multitenancy-engineer: disabled
 commercial-analyst: disabled
-qa-engineer: four bash witnesses live in plugins/crew/scripts/tests/ (subagent-model, tracker, review-contract, model-roster), each invoked as `bash plugins/crew/scripts/tests/<name>.test.sh` and each on the `test:` and `gates:` lines below, so a gate run exercises all four alongside the syntax and manifest validation. Behaviour no witness reaches — a hook firing, a skill loading — is proven by a smoke run with `claude --plugin-dir ./plugins/crew`; see roles/qa-engineer.md
+qa-engineer: four bash witnesses live in tests/ at the repository root (subagent-model, tracker, review-contract, model-roster), each invoked as `bash tests/<name>.test.sh` and each on the `test:` and `gates:` lines below, so a gate run exercises all four alongside the syntax and manifest validation. They sit outside plugins/crew/ deliberately: that directory is the payload an install copies, and a repository gate is not plugin surface. Behaviour no witness reaches — a hook firing, a skill loading — is proven by a smoke run with `claude --plugin-dir ./plugins/crew`; see roles/qa-engineer.md
 security-engineer: hooks execute shell on every SessionStart and UserPromptSubmit; tracker.sh writes to GitHub through the user's gh token; no secrets stored in the repo
 cloud-engineer: disabled
 ux-designer: disabled
@@ -32,12 +32,12 @@ technical-writer: README.md (Install, Using it, Roles, Model per role, Layout) m
 
 build:   -
 clients: -
-test:    bash plugins/crew/scripts/tests/subagent-model.test.sh && bash plugins/crew/scripts/tests/tracker.test.sh && bash plugins/crew/scripts/tests/review-contract.test.sh && bash plugins/crew/scripts/tests/model-roster.test.sh
-gates:   claude plugin validate . && for f in plugins/crew/scripts/*.sh plugins/crew/scripts/tests/*.sh; do bash -n "$f" || exit 1; done && jq empty .claude-plugin/marketplace.json plugins/crew/.claude-plugin/plugin.json plugins/crew/hooks/hooks.json && bash plugins/crew/scripts/tests/subagent-model.test.sh && bash plugins/crew/scripts/tests/tracker.test.sh && bash plugins/crew/scripts/tests/review-contract.test.sh && bash plugins/crew/scripts/tests/model-roster.test.sh
+test:    bash tests/subagent-model.test.sh && bash tests/tracker.test.sh && bash tests/review-contract.test.sh && bash tests/model-roster.test.sh
+gates:   claude plugin validate . && for f in plugins/crew/scripts/*.sh tests/*.sh; do bash -n "$f" || exit 1; done && jq empty .claude-plugin/marketplace.json plugins/crew/.claude-plugin/plugin.json plugins/crew/hooks/hooks.json && bash tests/subagent-model.test.sh && bash tests/tracker.test.sh && bash tests/review-contract.test.sh && bash tests/model-roster.test.sh
 deploy:  -
 
 Gates grow with the repo: when a Codex layout lands, its validation joins the gate line. The first
-script witness landed on 2026-09-10 (`plugins/crew/scripts/tests/subagent-model.test.sh`): a witness
+script witness landed on 2026-09-10 (`tests/subagent-model.test.sh`, inside the payload until 2026-10-01): a witness
 is a bare bash script named `<script>.test.sh`, it feeds the script under test a canned input and
 asserts on the output — or, where the contract it guards is prose, it asserts on the files in this
 tree — it exits 0 on pass and 1 on the first failure, and every new witness joins

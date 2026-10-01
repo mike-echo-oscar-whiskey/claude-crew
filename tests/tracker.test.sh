@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 # Witness for tracker.sh's create-time item checks: canned bodies in, one `refused:` line per
 # failing check out, and a stub `gh` that proves nothing reached the board. Run it bare:
-#   bash plugins/crew/scripts/tests/tracker.test.sh
+#   bash tests/tracker.test.sh
 # Exits 0 when every case passes, 1 on the first failure, and names the case either way.
 set -u
 
 here=$(cd "$(dirname "$0")" && pwd)
-sut="$here/../tracker.sh"
+root=$(cd "$here/.." && pwd)
+crew="$root/plugins/crew"
+sut="$crew/scripts/tracker.sh"
 tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
 fails=0
 
@@ -339,7 +341,7 @@ created "task create accepts a code span that wraps a <…> stub across two line
 #     checked against its own shape — here one that calls the goal section "## Aim".
 po=$(profile override)
 mkdir -p "$po/.claude/crew/items"
-sed 's/^## Goal$/## Aim/' "$here/../../templates/item-task.md" > "$po/.claude/crew/items/task.md"
+sed 's/^## Goal$/## Aim/' "$crew/templates/item-task.md" > "$po/.claude/crew/items/task.md"
 run "$po" -- task create --story 5 --title T --role agentic-ai-engineer --body-file "$(conforming_task t4f)"
 refused "task create reads the required sections from the project's own task template" \
   'refused: section "## Aim" is missing'

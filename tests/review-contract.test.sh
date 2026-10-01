@@ -4,29 +4,33 @@
 # present by name — the forbidden brief items, the reproduction rule, the severity obligations, the
 # `## Questions` section, the before-review file count and the one-round ceiling, which is also
 # asserted by its absence: no file the plugin ships may permit a second round. Run it bare:
-#   bash plugins/crew/scripts/tests/review-contract.test.sh
+#   bash tests/review-contract.test.sh
 # Exits 0 when every case passes, 1 when any sentence is missing, and names the case either way.
 set -u
 
 here=$(cd "$(dirname "$0")" && pwd)
-crew=$(cd "$here/../.." && pwd)
+root=$(cd "$here/.." && pwd)
+crew="$root/plugins/crew"
 fails=0
 
 pass() { echo "  ok   $1"; }
 fail() { echo "  FAIL $1"; echo "       $2"; fails=$((fails + 1)); }
 
-# needs <file-relative-to-plugins/crew> <literal> <label>
+# resolve <path> — an absolute path as given, anything else relative to plugins/crew.
+resolve() { case $1 in /*) echo "$1" ;; *) echo "$crew/$1" ;; esac; }
+
+# needs <file-relative-to-plugins/crew-or-absolute> <literal> <label>
 needs() {
   local rel=$1 lit=$2 label=$3
-  local f="$crew/$rel"
+  local f; f=$(resolve "$rel")
   if [ ! -f "$f" ]; then fail "$label" "$rel is not there"; return; fi
   if grep -qF -- "$lit" "$f"; then pass "$label"; else fail "$label" "$rel does not state: $lit"; fi
 }
 
-# needs_re <file-relative-to-plugins/crew> <extended-regex> <label>
+# needs_re <file-relative-to-plugins/crew-or-absolute> <extended-regex> <label>
 needs_re() {
   local rel=$1 re=$2 label=$3
-  local f="$crew/$rel"
+  local f; f=$(resolve "$rel")
   if [ ! -f "$f" ]; then fail "$label" "$rel is not there"; return; fi
   if grep -qE -- "$re" "$f"; then pass "$label"; else fail "$label" "$rel does not match: $re"; fi
 }
@@ -38,14 +42,14 @@ needs_re() {
 lacks_re() {
   local re=$1 label=$2
   local hits
-  hits=$(find "$crew" "$crew/$readme" -type f -name '*.md' -exec grep -nEi -- "$re" {} +)
+  hits=$(find "$crew" "$readme" -type f -name '*.md' -exec grep -nEi -- "$re" {} +)
   if [ -z "$hits" ]; then pass "$label"; else fail "$label" "a second round is permitted by: $hits"; fi
 }
 
 review=skills/review/SKILL.md
 work=skills/work/SKILL.md
 operating=templates/operating-model.md
-readme=../../README.md  # the plugin's README is the repository's own, two levels up from plugins/crew
+readme="$root/README.md"  # the repository's own README, beside the payload rather than inside it
 personas="agents/architect.md agents/qa-engineer.md agents/security-engineer.md"
 
 echo "review-contract.sh"

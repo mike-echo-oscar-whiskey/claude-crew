@@ -211,13 +211,22 @@ plugins/crew/
   hooks/hooks.json  SessionStart (incl. compact) + UserPromptSubmit + SubagentStop
   scripts/          session-context.sh prompt-context.sh crew-mode.sh tracker.sh
                     subagent-model.sh common.sh
-  scripts/tests/    subagent-model.test.sh tracker.test.sh review-contract.test.sh
-                    model-roster.test.sh  (run bare; exit 0 on pass)
   templates/        operating-model.md profile.md role-addendum.md
                     item-story.md item-task.md item-bug.md item-tech-debt.md
                     (read at runtime; a project replaces one kind by putting its own
                      complete copy at .claude/crew/items/<kind>.md)
 ```
+
+Everything above is what an install copies, and nothing else is. The repository holds one more
+directory the plugin deliberately does not ship:
+
+```
+tests/              subagent-model.test.sh tracker.test.sh review-contract.test.sh
+                    model-roster.test.sh  (run bare from the repository root; exit 0 on pass)
+```
+
+They are this repository's gates, not plugin surface: two of them assert on the README beside
+`plugins/crew/`, which an install has no copy of, so inside the payload they could only fail.
 
 Tracker backend: GitHub via `gh` today. `tracker: azure-devops …` is recognised and refused
 with a clear message until that backend exists.
@@ -233,9 +242,9 @@ and the criteria and nothing the people who did the work wrote about it; one rou
 and a contested finding goes to you rather than to a second pass in the same session.
 
 Little in the gate checks what this README and the two manifests claim. `claude plugin validate .`
-reads the manifests' structure, `jq empty` their syntax, `scripts/tests/model-roster.test.sh` holds
+reads the manifests' structure, `jq empty` their syntax, `tests/model-roster.test.sh` holds
 the "Model per role" table's Default column against the persona frontmatter, and
-`scripts/tests/review-contract.test.sh` holds the three sentences above about the review ceiling and
+`tests/review-contract.test.sh` holds the three sentences above about the review ceiling and
 searches every Markdown file the plugin ships, this README among them, for one that would permit a
 second round. That is the whole of it. Nothing in it reaches what either file claims about the
 plugin's own shape: the skill set, the counts in Layout and the `17` in both manifest descriptions
