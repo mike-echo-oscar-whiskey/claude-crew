@@ -1,5 +1,5 @@
 # qa-engineer — project addendum
 
-- There is no automated test suite. The gate is `claude plugin validate .`, `bash -n` per script and `jq empty` per manifest; run it bare and quote each exit code.
+- The suite is the bash witnesses the profile names on its `test:` and `gates:` lines; run the `gates:` line itself — those witnesses plus `claude plugin validate .`, `bash -n` per script and `jq empty` per manifest — bare, and quote its exit code; a single witness alone is for iterating, never for the verdict. Their coverage is uneven by design, so name the behaviour in the diff that no witness reaches instead of reading a green gate as a covered change.
 - Behaviour of hooks and skills is proven by a smoke run: `claude --plugin-dir ./plugins/crew` from a scratch project, then the hook output on SessionStart and the /crew:* command in question. Quote the hook lines you saw.
-- A mutation review of a script means changing one branch of it in your worktree and showing the gate or smoke run catches it; when nothing does, that is the finding.
+- A mutation review here means changing one branch of a script, or one line of the prose or manifest a witness asserts on, in your worktree, and naming the witness that turns red; when none does, that is the finding — it is how checks that could not fail were found in this tree. Whether this diff earns a mutation review at all is decided in your brief, not here.
