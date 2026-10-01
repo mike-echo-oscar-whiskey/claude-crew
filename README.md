@@ -19,6 +19,9 @@ claude   # then: /crew:init
 
 Development from a checkout: `claude --plugin-dir ./plugins/crew`.
 
+Upgrading: `CHANGELOG.md` says per release what changed, what to do, and what happens to a project
+that changes nothing.
+
 ## Using it
 
 | Want | Do |
@@ -74,8 +77,10 @@ before anything is called dead. Each role carries
 only the Serena tools its mandate needs: engineers and QA navigate and edit by symbol, architect,
 technical-writer, security, privacy and the scout navigate only, product-owner, commercial-analyst and
 ux-designer have none, and no role touches Serena's memory store — project memory is the profile and
-the docs. A hand-off may be addressed to the lead for what only the lead can supply. The qa-engineer reviews by mutation, always in a worktree of its own, detached at the
-reviewed commit; both pipeline skills create it.
+the docs. A hand-off may be addressed to the lead for what only the lead can supply. When the diff
+changes code a test protects, the qa-engineer reviews by mutation in a worktree of its own, detached
+at the reviewed commit, which both pipeline skills create; for a docs-only diff, or a script nothing
+builds or imports, no worktree is made and the review records the mutation as not applicable.
 
 ## TDD
 
@@ -220,3 +225,22 @@ with a clear message until that backend exists.
 Subagents do not see the conversation: the brief is the quality lever. Specialists cannot
 debate each other; the lead reconciles. A story through the full pipeline costs several times
 the tokens of a single-agent session; the profile's triage table keeps small things small.
+
+An agent review is a net under your own, never a substitute for it. A review brief carries the diff
+and the criteria and nothing the people who did the work wrote about it; one round is the ceiling;
+and a contested finding goes to you rather than to a second pass in the same session.
+
+Nothing in the gate checks what this README and the two manifests claim about the plugin's own
+shape. `claude plugin validate .` reads the manifests' structure, `jq empty` their syntax, and
+`scripts/tests/model-roster.test.sh` holds the "Model per role" table's Default column against the
+persona frontmatter — that is the whole of it. The skill set, the counts in Layout and the `17` in
+both manifest descriptions are true by review only, which is why neither description enumerates the
+skills: an enumeration that goes stale is invisible to every check here, and one did.
+`tracker.sh lint --all` is deliberately not on the `gates:` line either — it would turn a gate red
+for items nobody has had the chance to bring over.
+
+The `/crew:*` skills are human-only under Claude Code, by `disable-model-invocation: true` in all
+ten. Under Codex that key is rejected by its own authoring validator and parsed by neither of its
+runtime paths (verified 2026-10-01), so a command written for a human to run — `/crew:conform`, which
+edits issue bodies — would be model-invocable there with nothing to stop it. Drive the pipeline from
+Claude Code.

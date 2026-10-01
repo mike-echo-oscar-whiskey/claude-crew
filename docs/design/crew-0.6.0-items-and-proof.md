@@ -1,8 +1,10 @@
 # ✨ feat(crew): every item has one shape and one size, a reviewer sees the change and the criteria only, and the model each run used is proved
 
-Design for stories #1 and #2, release 0.6.0. Architect, 2026-09-30. Status: **proposed** — task #10
-marks it shipped with the version and the date. Sections are numbered §1–§10 because the eight task
-bodies (#3–#10) cite them by that number; the map is at the end.
+Design for stories #1 and #2, release 0.6.0. Architect, 2026-09-30. Status: **shipped** in **0.6.0**
+on **2026-10-01** (task #10). Sections are numbered §1–§10 because the eight task
+bodies (#3–#10) cite them by that number; the map is at the end. What the plan got wrong is recorded
+in "Corrections the tasks returned", below the Risks — the decisions themselves stand as written,
+because a design document records what was decided when it was decided.
 
 ## Problem
 
@@ -523,6 +525,63 @@ changes behaviour cannot be rolled back by a version pin.
 - `lint` at `--limit 500` per kind: a board past 500 of one kind needs paging; the closing line must
   say when the limit was hit rather than report a partial count as whole.
 - The before-review count (D11, moment 3) is filed in task #8; the lead's procedure is detailed there.
+
+## Corrections the tasks returned
+
+Recorded by task #10, 2026-10-01, from the closing comments of #3–#9 and #11–#13. The decisions above
+stand as written; this is what the plan got wrong, so the next design does not repeat it.
+
+- **The evidence under "The model proof did not exist" compared two sessions.** The hook log quoted
+  there belongs to one session id and the `.output` files to another, which is itself the defect #9
+  fixed. The hook also fires more than once per completion — 723 log lines for 180 runs — so its line
+  counts were never run counts. The Haiku runs in the measured window are ten, not eight, and every
+  one was explicitly dispatched on Haiku; they read as mismatches only because the comparison used the
+  persona default instead of the dispatch.
+- **D16 was too strong as first written.** "A finding you have not reproduced is not a finding" closed
+  the class of authorization and tenant gaps this tree cannot execute, where a quoted line and the
+  path reaching it are the only proof there is. The shipped wording is a disjunction — a command whose
+  output shows it **or** the quoted line — and a finding that could not be executed says so. The same
+  review found the three review personas being asked for a `## Questions` section their own output
+  contract forbade.
+- **D12's split of the countable half from the text half was incomplete.** Step 2's countable list
+  omitted the `Blocked by:` and `Role:` header lines and half of `Size:`, and step 3 triggered only on
+  a missing *section* — so a missing header line was handled by nobody. `lint --all` on this
+  repository's own board reports exactly one failing item whose only fault is that line, so the pass
+  as designed would have run against its own demonstration case and changed nothing. Step 2's first
+  bullet and step 3's trigger now say "section or header line".
+- **Story #2's criterion 9 contradicted itself** — it required two personas on `opus` while the rule
+  it also stated allowed a move only on a logged miss. Resolved by scoping the rule rather than
+  weakening it: judging a tier *wrong* is a quality claim and needs named evidence; choosing the
+  frontmatter fallback answers a different question — which tier runs when a lead names none — and a
+  fallback is chosen, not earned. #11 ships both changes under that scoping and the roster says so.
+- **D14's witness was hung on the wrong task.** The assertion that both skills name every forbidden
+  item and call the list a prohibition was first attached to the templates story's witness; it moved
+  to the task that authored the prohibition, as `plugins/crew/scripts/tests/review-contract.test.sh`.
+  D14's text above already names it there.
+- **§5/D11's foreclosure was read wider than it is.** It forecloses a file count in a project's
+  *gate*, not a count before review: what shipped is `skills/work/SKILL.md` step 4, a lead step over
+  the committed diff, which is what moment 3 always described.
+- **The design named no transition meaning *finished*.** `claim` adds `in-progress` and `release`
+  offered only `in-review`, `blocked` and `open`, so closing an item always left the lane label and
+  `status` counted finished tasks as in flight — five of them were. `rg 'gh issue close'` across the
+  plugin returned nothing: the pipeline had no documented end at all. #13 adds `release --to done` and
+  `work` step 7, keyed on the merge event rather than on who merged.
+- **The design cited `tracker.sh show` as the read path without checking it.** It printed only the
+  comment stream, so the two pipeline steps that open on it — `plan` step 1 and `work` step 1 — could
+  not see a body, and `/crew:conform` carried a workaround sentence explaining why not to use it.
+  Fixed in #12; the usage line had said `(issue + comments)` since the beginning.
+- **Documentation drift the design did not know about**: `README.md` and
+  `templates/operating-model.md` both named a stale model trio that had been wrong since 0.5.6, and
+  the README's witness list lagged the tree twice during the eight tasks. The gate validates neither
+  — see the README's "Honest limits".
+- **D18 names a stale step number** — "`/crew:status` and `work` step 8 print the table", at `:412`
+  here (`:410` before this section was added); the audit is printed at `work` step 9 after
+  renumbering. It **stays as written**, for the reason at the top of this file.
+- **Task #10's own body undercounted twice.** It said `scripts/tests/` holds two witnesses — the tree
+  holds four — and said both manifests enumerate the pipeline skills, where only
+  `plugins/crew/.claude-plugin/plugin.json` did. Its file list also carries no release-notes file;
+  0.6.0 adds `CHANGELOG.md` as a fifth, because the release has to say what changed somewhere a
+  reader who installs it can read.
 
 ## Section map — which task cites what
 
