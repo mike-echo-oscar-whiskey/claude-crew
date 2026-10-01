@@ -183,34 +183,43 @@ run() { arm; out=$(invoke "$@" 2>&1); rc=$?; disarm; }
 # that assert a channel use this; every other case wants what a terminal shows, which is `run`.
 run_split() { arm; errfile="$tmp/stderr.txt"; out=$(invoke "$@" 2>"$errfile"); rc=$?; disarm; }
 
-# refused <name> <expected substring>...  -> exit 1, every substring present, no gh call at all
-refused() {
+# refused_q <name> <expected substring>...  -> exit 1, every substring present, no gh call at all, and
+# nothing printed when the run conforms: several bodies then stand under one case name and the caller
+# passes once, at the end. `refused` is this plus the pass line, which is what a one-body case wants.
+refused_q() {
   local name=$1 want; shift
-  if [ "$rc" -ne 1 ]; then fail "$name" "expected exit 1, got $rc; output: $out"; return; fi
+  if [ "$rc" -ne 1 ]; then fail "$name" "expected exit 1, got $rc; output: $out"; return 1; fi
   for want in "$@"; do
-    case "$out" in *"$want"*) ;; *) fail "$name" "expected '$want' in the refusal, got: $out"; return ;; esac
+    case "$out" in *"$want"*) ;; *) fail "$name" "expected '$want' in the refusal, got: $out"; return 1 ;; esac
   done
-  if [ -s "$ghlog" ]; then fail "$name" "gh was called: $(head -1 "$ghlog")"; return; fi
-  pass "$name"
+  if [ -s "$ghlog" ]; then fail "$name" "gh was called: $(head -1 "$ghlog")"; return 1; fi
+  return 0
 }
 
-# created <name> [expected body substring]... -> exit 0, number printed, gh asked to create with the
-# kind label the board filters on (`status` and `next` select tasks by `task` and read the role label)
-created() {
+# refused <name> <expected substring>... -> the same judgement, with the case's pass line
+refused() { refused_q "$@" && pass "$1"; }
+
+# created_q <name> [expected body substring]... -> exit 0, number printed, gh asked to create with the
+# kind label the board filters on (`status` and `next` select tasks by `task` and read the role label).
+# Silent on success, for the reason `refused_q` is.
+created_q() {
   local name=$1 want cmd; shift
-  if [ "$rc" -ne 0 ]; then fail "$name" "expected exit 0, got $rc; output: $out"; return; fi
-  case "$out" in *99*) ;; *) fail "$name" "expected the new number on stdout, got: $out"; return ;; esac
+  if [ "$rc" -ne 0 ]; then fail "$name" "expected exit 0, got $rc; output: $out"; return 1; fi
+  case "$out" in *99*) ;; *) fail "$name" "expected the new number on stdout, got: $out"; return 1 ;; esac
   cmd=$(grep -a -m1 "issue create" "$ghlog")
-  if [ -z "$cmd" ]; then fail "$name" "gh was never asked to create"; return; fi
+  if [ -z "$cmd" ]; then fail "$name" "gh was never asked to create"; return 1; fi
   case "$cmd" in
     *'--label story'*|*'--label task --label role:'*) ;;
-    *) fail "$name" "the create command carries no kind label: $cmd"; return ;;
+    *) fail "$name" "the create command carries no kind label: $cmd"; return 1 ;;
   esac
   for want in "$@"; do
-    case "$(cat "$ghbody")" in *"$want"*) ;; *) fail "$name" "expected '$want' in the created body"; return ;; esac
+    case "$(cat "$ghbody")" in *"$want"*) ;; *) fail "$name" "expected '$want' in the created body"; return 1 ;; esac
   done
-  pass "$name"
+  return 0
 }
+
+# created <name> [expected body substring]... -> the same judgement, with the case's pass line
+created() { created_q "$@" && pass "$1"; }
 
 echo "tracker.sh create-time checks"
 
@@ -261,6 +270,39 @@ run "$pc" -- task create --story 5 --title T --role agentic-ai-engineer --body-f
 refused "task create refuses a body that is not text instead of skipping its checks" \
   'refused: the body is not text'
 
+# 3e. AC 3 — the ceiling switched off is not the checks switched off. `size-cap: -` licenses any count and
+#     nothing else: a body that states no size, one whose size cannot be read as a number, and one whose
+#     number disagrees with its own `## Files` list are each still refused. The nearest case above covers a
+#     cap the profile cannot *mean*, which falls back to 15 and leaves the comparison running — a different
+#     branch. The last arm is what makes this case about the ceiling rather than about any profile: twenty
+#     files, which the default cap refuses, are accepted here, so a `-` that reached the comparison instead
+#     of disabling it would fail the case rather than collect three refusals for free.
+n_capoff="the size checks hold with the ceiling switched off"
+pco=$(profile capped-off "size-cap: -")
+capoff_ok=1
+run "$pco" -- task create --story 5 --title T --role agentic-ai-engineer \
+  --body-file "$(task_body t3f '' 2 1 'Split line: n/a')"
+refused_q "$n_capoff" 'refused: the "Size:" line is missing' || capoff_ok=0
+run "$pco" -- task create --story 5 --title T --role agentic-ai-engineer \
+  --body-file "$(task_body t3g 'Size: roughly a dozen' 2 1 'Split line: n/a')"
+refused_q "$n_capoff" 'refused: Size: must read' 'got "Size: roughly a dozen"' || capoff_ok=0
+run "$pco" -- task create --story 5 --title T --role agentic-ai-engineer \
+  --body-file "$(task_body t3h 'Size: 2 hand-written files (+ 0 generated) · 1 RED tests · one PR' 3 1 'Split line: n/a')"
+refused_q "$n_capoff" 'refused: ## Files lists 3 files, Size: says 2' || capoff_ok=0
+run "$pco" -- task create --story 5 --title T --role agentic-ai-engineer \
+  --body-file "$(task_body t3i "$over" 20 1 'Split line: files 13-20 go to the follow-up')"
+created_q "$n_capoff" || capoff_ok=0
+if [ "$capoff_ok" = 1 ]; then pass "$n_capoff"; fi
+
+# 3f. AC 4 — the licence is a sentence, not a flag: the over-cap body is accepted *and* the reason it was
+#     accepted for is in the stored body, where the next reader of the item finds it. The arm above asserts
+#     only that such a body is created, which an adapter dropping the line would pass just as well.
+n_exc="an accepted Exception: body keeps its reason in the stored body"
+exc='Exception: one mechanical rename — 20 files, no behaviour change; reviewed as one sweep.'
+run "$pc" -- task create --story 5 --title T --role agentic-ai-engineer \
+  --body-file "$(task_body t3j "$over" 20 1 "$exc")"
+created "$n_exc" "$exc"
+
 # 4. AC 3 — the two counting rules: ## Files must agree with H, and T = 0 needs the section to say so.
 run "$p" -- task create --story 5 --title T --role agentic-ai-engineer \
   --body-file "$(task_body t4a 'Size: 2 hand-written files (+ 0 generated) · 1 RED tests · one PR' 3 1 'Split line: n/a')"
@@ -302,6 +344,23 @@ run "$po" -- task create --story 5 --title T --role agentic-ai-engineer --body-f
 refused "task create reads the required sections from the project's own task template" \
   'refused: section "## Aim" is missing'
 
+# 4f. AC 10 — the fallback when a profile declares no `generated:` paths at all: there is nothing to
+#     exclude, so every bullet in `## Files` counts toward H. This is the body 4b accepts under
+#     `generated: gen/*.json` — one hand-written bullet, one generated — and the only difference here is the
+#     absent profile key, so a default that quietly excluded anything would let this body through while 4b
+#     stayed green. The premise is asserted first: a case that silently stopped testing the absent key
+#     because `profile` grew a default would otherwise keep passing.
+n_nogen="with no generated: paths declared, every file in ## Files counts toward the size"
+png=$(profile no-generated)
+ng=$(task_body t4g 'Size: 1 hand-written files (+ 1 generated) · 1 RED tests · one PR' 1 1 'Split line: n/a')
+sed -i '/^- `plugins\/crew\/scripts\/f1.sh`/a - `gen/b.json` — generated, and no profile key says so' "$ng"
+if grep -q '^generated:' "$png/.claude/crew/profile.md"; then
+  fail "$n_nogen" "the profile declares generated: paths, so this case is asserting the other branch"
+else
+  run "$png" -- task create --story 5 --title T --role agentic-ai-engineer --body-file "$ng"
+  refused "$n_nogen" 'refused: ## Files lists 2 files, Size: says 1'
+fi
+
 # 5. AC 5 — a story missing a section and carrying a live placeholder gets one line per check.
 s=$(conforming_story s5)
 awk '/^## Out of scope$/{skip = 1} /^## Proof map$/{skip = 0} !skip' "$s" \
@@ -327,6 +386,40 @@ run "$p" -- task create --story 5 --title T --role agentic-ai-engineer --blocked
 created "task create --blocked-by none writes the same line" "Blocked by: none"
 run "$p" -- task create --story 5 --title T --role agentic-ai-engineer --blocked-by "12,13" --body-file "$(conforming_task t6c)"
 created "task create --blocked-by keeps the references" "Blocked by: #12, #13"
+
+# 6b. AC 5 — the other half of the criterion: what the board ends up holding. The adapter owns two writes
+#     and no more — the two header lines it prepends to the task, and the one checklist line it appends to
+#     the story — so the submitted body has to come back out of the stored one, byte for byte, once those
+#     two lines and their blank are taken off. A write that reformatted, re-ordered or dropped a section
+#     would leave every refusal above intact and still lose the body a role wrote, and a second checklist
+#     line would make the story's rollup count the task twice.
+n_stored="a stored body keeps every section it was submitted with, and the adapter's two writes are correct"
+src=$(conforming_task t8)
+run "$p" -- task create --story 5 --title 'the stored body' --role agentic-ai-engineer \
+  --blocked-by "12,13" --body-file "$src"
+if created_q "$n_stored"; then
+  rest="$tmp/stored-rest.md"; tail -n +4 "$ghbody" > "$rest"
+  missing=""
+  while IFS= read -r sec; do
+    grep -aqxF "$sec" "$ghbody" || missing="$missing $sec"
+  done < <(grep -aE '^## ' "$src")
+  ticks=$(grep -ac -- '^- \[ \] #99 (agentic-ai-engineer) the stored body$' "$ghlog" || true)
+  if [ "$(sed -n 1p "$ghbody")" != 'Story: #5' ]; then
+    fail "$n_stored" "the first stored line must be the rollup line, got: $(sed -n 1p "$ghbody")"
+  elif [ "$(sed -n 2p "$ghbody")" != 'Blocked by: #12, #13' ]; then
+    fail "$n_stored" "the second stored line must carry the blockers, got: $(sed -n 2p "$ghbody")"
+  elif [ -n "$(sed -n 3p "$ghbody")" ]; then
+    fail "$n_stored" "a blank line separates the two header lines from the body, got: $(sed -n 3p "$ghbody")"
+  elif [ -n "$missing" ]; then
+    fail "$n_stored" "these submitted sections are not in the stored body:$missing"
+  elif ! diff -q "$src" "$rest" >/dev/null; then
+    fail "$n_stored" "under those two lines the stored body is not the submitted one: $(diff "$src" "$rest" | head -4 | tr '\n' ' ')"
+  elif ! grep -aq 'issue edit 5 --body' "$ghlog"; then
+    fail "$n_stored" "the story's checklist was never written: $(cat "$ghlog")"
+  elif [ "$ticks" != 1 ]; then
+    fail "$n_stored" "the story gets exactly one checklist line for the new task, got $ticks"
+  else pass "$n_stored"; fi
+fi
 
 # The conforming bodies must pass untouched, or every refusal above proves nothing.
 run "$p" -- task create --story 5 --title T --role agentic-ai-engineer --body-file "$(conforming_task t7)"
@@ -399,16 +492,28 @@ if reported "$n2" 0 '2 conforming, 0 not'; then
   else pass "$n2"; fi
 fi
 
-# 9. AC 7, AC 11 — an item filed before this shape existed is still claimable: the lint lines come back as
-#    warnings and the assign, the label and the comment all happen. Refusing here would strand every old item.
-n3="claim prints the lint lines as warnings and still claims"
+# 9. AC 7, AC 11 — an item filed before this shape existed is still claimable, and the four clauses an
+#    upgrading project is owed are each asserted by name: the claim succeeds, the failing checks come back
+#    as warnings, nothing on the board is rewritten, and only a body written after the upgrade is refused.
+#    The third is the one a passing claim hides: the claim's own assign, label and comment must happen while
+#    no edit carries a `--body`, which is how an upgrade that "fixed" the body on the way through would be
+#    caught. The fourth is the same off-shape body offered to `task create`, which must refuse it — without
+#    that arm, a claim that warned and a create that also only warned would read identically here.
+#    Refusing at claim would strand every item already on the board.
+n3="claiming an item filed before the upgrade warns, succeeds, edits nothing and refuses only newer bodies"
 jq -n --rawfile b "$nogoal" '{a:[],l:["task"],s:"OPEN",b:$b}' > "$claimjson"
 run "$p" -- claim 7
 if reported "$n3" 0 'warning:' 'section "## Goal" is missing' 'claimed #7'; then
   if ! grep -aq -- '--add-assignee @me' "$ghlog"; then fail "$n3" "the assign never happened: $(cat "$ghlog")"
   elif ! grep -aq -- '--add-label in-progress' "$ghlog"; then fail "$n3" "the label never happened: $(cat "$ghlog")"
   elif ! grep -aq 'issue comment' "$ghlog"; then fail "$n3" "the claimed-by comment never happened: $(cat "$ghlog")"
-  else pass "$n3"; fi
+  elif grep -aqE 'issue edit [0-9]+ .*--body' "$ghlog"; then
+    fail "$n3" "the claim rewrote the body on the board: $(grep -aE 'issue edit [0-9]+ .*--body' "$ghlog" | head -1)"
+  else
+    olddraft=$(conforming_task C9); sed -i '/^## Goal$/d' "$olddraft"
+    run "$p" -- task create --story 5 --title T --role agentic-ai-engineer --body-file "$olddraft"
+    refused "$n3" 'refused: section "## Goal" is missing'
+  fi
 fi
 
 # 10. D8 — severity is a label, and the obligation travels in the label's own description: a reviewer who
