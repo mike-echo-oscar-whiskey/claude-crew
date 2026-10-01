@@ -105,26 +105,62 @@ section_body() { awk -v h="$2" '$0 == h {f = 1; next} /^## /{f = 0} f' "$1"; }
 section_has_text() { [ -n "$(section_body "$1" "$2" | tr -d '[:space:]')" ]; }
 
 body_placeholders() { # <file> -> the template stubs still in the body, one per line
-  # Fenced blocks go first, whole, and line-at-a-time because that is the only place a fence is visible:
-  # a fence quotes verbatim material, so a stub quoted inside one is not an unfilled stub, and its three
-  # backticks mis-pair with the span strip below — the first two cancel, the third pairs with the next
-  # backtick in the text, and the strip then removes the fence's own opening and exposes the text the
-  # fence was protecting (#41). An opener with no closer protects nothing, so its lines are handed back
-  # at the end rather than dropped: a single stray fence would otherwise switch the rest of the scan off.
-  # The rest is joined into one line: a code span and a stub both wrap across line breaks, so a
-  # line-at-a-time scan reports a wrapped `<…>` inside backticks as unfilled. Spans are then stripped,
-  # which is what keeps a real `List<string>` out of the report — but a span holding NOTHING but a stub
-  # is unwrapped first, because that is a stub the template shipped inside backticks rather than content
-  # a role wrote: `item-bug.md` writes its role that way, which is why the one stub naming an owner was
-  # the one stub this scan could never report (#41). A body wanting a literal `<div>` writes it in a
-  # fence, where nothing is read at all.
+  # One awk pass, three states, and no regular expression that pairs backticks — pairing by regex is what
+  # made two stray backticks delete every stub between them (#42) and what made a fence's three backticks
+  # expose the lines it was quoting (#41).
+  #   A FENCE is the one structure only a line can show: three or more backticks as a line's first
+  # non-blank characters, indented or not, since a fence inside a list item is still a fence. A fence
+  # quotes verbatim material, so nothing between an opener and its closer is scanned at all — that is how
+  # a body writes a stub, or a literal `<div>`, and means it. An opener with no closer quotes nothing, so
+  # its lines are handed back at the END rather than dropped: one stray fence must not switch the rest of
+  # the scan off.
+  #   A PARAGRAPH is the span scanner's unit. Lines are joined, because a span and a stub both wrap across
+  # a line break and a line-at-a-time scan would read a wrapped `<…>` as unfilled; they are joined no
+  # further than the next blank line, because a code span cannot cross a paragraph boundary. That one
+  # bound is what tells a span from a STRAY backtick: a lone backtick in prose has no closer in its own
+  # paragraph, so it is literal text and the stubs below it are still read (#42).
+  #   Inside a paragraph, a run of n backticks opens a span only if a run of exactly n closes it later;
+  # an unclosed run is literal. A closed span's content is dropped, which is what keeps a real
+  # `List<string>` out of the report — unless the content is NOTHING but `<…>` tokens, which is a stub the
+  # template shipped inside backticks rather than content a role wrote, and is unwrapped so the scan sees
+  # it. `item-bug.md` writes its role as one such token and `item-task.md` its design path as two side by
+  # side, which is why those were the two stubs this scan could never report (#41, #42).
+  #   The cost, unchanged in kind and slightly wider in reach: a body meaning a literal backticked
+  # `<token>` in prose is refused as a stub, and now also one meaning two of them side by side. Such a
+  # body writes them in a fence, where nothing is read, or puts another word beside them in the span.
   awk '
-    /^```/ { if (f) { f = 0; held = "" } else { f = 1 }; next }
-    f      { held = held $0 "\n"; next }
-           { print }
-    END    { printf "%s", held }
+    function stubs_only(s) { return s ~ /^(<[^<>]*>)+$/ }
+    function closer(s, from, want,   n, i, k) {   # the start of the next run of exactly `want`, or 0
+      n = length(s); i = from
+      while (i <= n) {
+        if (substr(s, i, 1) != "`") { i++; continue }
+        k = 0; while (i + k <= n && substr(s, i + k, 1) == "`") k++
+        if (k == want) return i
+        i += k
+      }
+      return 0
+    }
+    function despan(s,   out, n, i, run, end, body) {
+      out = ""; n = length(s); i = 1
+      while (i <= n) {
+        if (substr(s, i, 1) != "`") { out = out substr(s, i, 1); i++; continue }
+        run = 0; while (i + run <= n && substr(s, i + run, 1) == "`") run++
+        end = closer(s, i + run, run)
+        if (end == 0) { out = out substr(s, i, run); i += run; continue }
+        body = substr(s, i + run, end - i - run)
+        if (stubs_only(body)) out = out body
+        i = end + run
+      }
+      return out
+    }
+    function flush() { if (para != "") { print despan(para); para = "" } }
+    function take(line) { if (line ~ /^[[:space:]]*$/) flush(); else para = (para == "" ? line : para SEP line) }
+    BEGIN { SEP = sprintf("%c", 1) }
+    /^[[:space:]]*```/ { if (f) { f = 0; held = "" } else { f = 1 }; next }
+    f     { held = held $0 "\n"; next }
+          { take($0) }
+    END   { flush(); n = split(held, lines, "\n"); for (i = 1; i <= n; i++) take(lines[i]); flush() }
   ' "$1" \
-    | tr '\n' '\001' | sed -E 's/`(<[^<>]*>)`/\1/g; s/`[^`]*`//g' \
     | { grep -aoE '<!--|<[^<>[:space:]/][^<>]*>' || true; } \
     | { grep -avE '^<https?:' || true; } | tr '\001' ' ' | sort -u
 }

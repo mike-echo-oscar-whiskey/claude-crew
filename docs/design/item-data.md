@@ -122,8 +122,8 @@ A bug's role is the body's first line today (`templates/item-bug.md`: ``Role: `<
 … · found …``), and nothing reads it. `validate_plain_body` (`tracker.sh`) judges template
 sections and surviving placeholders and has no header contract at all; the role token sits inside
 backticks, and the placeholder scan unwraps a span holding nothing but a stub, so that token refuses
-the line unfilled in its own right (`body_placeholders`, the `` s/`(<[^<>]*>)`/\1/g `` that runs
-before the span strip). Until #41 it did not: the scan stripped the span before it looked, and the
+the line unfilled in its own right (`body_placeholders`, whose span scan unwraps a span holding nothing
+but stubs rather than dropping it). Until #41 it did not: the scan stripped the span before it looked, and the
 neighbouring `<none, or the doc>` and `<where and when>` were what refused that line.
 `plain_create` takes no `--role`, and the adapter puts no `role:<r>` label on a bug, on
 the stated ground that a flag would write "a second copy of a fact the body states, with nothing

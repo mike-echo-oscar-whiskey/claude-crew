@@ -1096,14 +1096,17 @@ plain_created "$nspan" bug '`<div> plus prose`' && pass "$nspan"
 #     text the fence was protecting. A bug report that quotes a template line verbatim — the one thing an
 #     Evidence section is for — is therefore refused for containing it, and the only way to file this very
 #     report was to indent the block instead of fencing it.
-#     The lone backtick in the sentence above the fence is the case's teeth and must not be tidied away:
-#     with an even count before the fence the strip's own mis-pairing happens to eat the fence's content
-#     too, so the body passes with the fence arm deleted and the case proves nothing. One stray backtick
-#     ahead of the block makes the counts differ — without the arm the strip leaves `<crew role>`,
-#     `<none, or the doc>` and `<where and when>` standing and the body is refused.
+#     The BLANK LINE inside the quoted block is this case's teeth (#42). The lone backtick above the fence
+#     was what held the case up while the strip paired backticks by regular expression; under the scanner
+#     that replaced it a one-paragraph block needs no fence handling at all — the opener's three backticks
+#     find the closer's three in the same paragraph and the whole block is dropped as one long span, so the
+#     case would pass with the fence arm deleted and prove nothing. A span cannot cross a blank line, so
+#     with the block in two paragraphs and no fence arm the opener is a stray run, `<crew role>` is a span
+#     holding nothing but a stub, and all three quoted stubs are reported. The lone backtick stays, as
+#     prose that must remain prose; it is no longer what holds this case up.
 nfence="body_placeholders does not expose a stub quoted inside a fenced block"
 fph=$(bug_body C11)
-sed -i 's|^Claiming that item exits 3 and names no failing check\.$|Claiming that item exits 3 and names no failing check. One lone ` backtick stands in this sentence, and the template line it was filed from reads:\n\n```\nRole: `<crew role>` · design: <none, or the doc> · found <where and when>\n```|' "$fph"
+sed -i 's|^Claiming that item exits 3 and names no failing check\.$|Claiming that item exits 3 and names no failing check. One lone ` backtick stands in this sentence, and the template line it was filed from reads, blank line and all:\n\n```\nRole: `<crew role>` · design: <none, or the doc>\n\nfound <where and when>\n```|' "$fph"
 run "$p" -- bug create --title 'the probe' --body-file "$fph"
 plain_created "$nfence" bug 'Role: `<crew role>` · design: <none, or the doc>' && pass "$nfence"
 
@@ -1118,6 +1121,61 @@ uph=$(bug_body C12)
 sed -i 's|^Claiming that item exits 3 and names no failing check\.$|Claiming that item exits 3 and names no failing check, and the report quotes the block whose closer its author forgot:\n\n```\nthe quoted line, under which the closer never came\n\n<an unfilled stub the fence never closed over>|' "$uph"
 run "$p" -- bug create --title 'the probe' --body-file "$uph"
 refused "$nheld" 'refused: unfilled template placeholder — <an unfilled stub the fence never closed over>'
+
+# 37. #42 — the hole #41 left open, and the reason the strip stopped being a regular expression: two stray
+#     backticks in ordinary prose paired with each other, and everything between them — an unfilled stub
+#     included — was deleted before the scan looked. The body here is conforming on every other check and
+#     carries one stub, in its own paragraph, between two lone backticks in two other paragraphs. A span
+#     cannot cross a blank line, so neither lone backtick opens one and the stub between them is read.
+#     Case 35's lone backtick cannot see this: there the fence arm removes the material that mis-paired
+#     with it, so the deletion lands on prose and the body is accepted either way.
+nstray="body_placeholders reports a stub standing between two stray backticks in prose"
+yph=$(bug_body C13)
+sed -i 's|^Claiming that item exits 3 and names no failing check\.$|Claiming that item exits 3 and names no failing check.\n\nA lone ` backtick stands in this sentence.\n\n<an unfilled stub between the two>\n\nAnother lone ` stands in this one.|' "$yph"
+run "$p" -- bug create --title 'the probe' --body-file "$yph"
+refused "$nstray" 'refused: unfilled template placeholder — <an unfilled stub between the two>'
+
+# 38. #42 — the same class as case 35 one indent in. A fence is how a body quotes a stub verbatim, and a
+#     fence inside a list item is still a fence: matching the opener at column 0 only left an indented one
+#     as three ordinary backticks, which mis-paired and exposed the very lines the author fenced.
+#     The BLANK LINE inside the quoted block is this case's teeth, and the whole reason the block is two
+#     paragraphs rather than one. Without it the opener's three backticks find the closer's three in the
+#     same paragraph, the span scanner swallows the block as one long span, and the body is accepted with
+#     no fence handling at all — the case would witness nothing. A span cannot cross a blank line, so with
+#     the fence arm gone the opener is a stray run, `<crew role>` is a span holding nothing but a stub, and
+#     all three quoted stubs are reported. The lone backtick in the sentence above is prose, and is here to
+#     show it stays prose; it is not what holds this case up.
+nindent="body_placeholders does not expose a stub quoted inside an indented fence"
+iph=$(bug_body C14)
+sed -i 's|^Claiming that item exits 3 and names no failing check\.$|Claiming that item exits 3 and names no failing check. One lone ` backtick stands in this sentence, and the list item below quotes the template line it was filed from:\n\n- quoted verbatim, blank line and all:\n\n  ```\n  Role: `<crew role>` · design: <none, or the doc>\n\n  found <where and when>\n  ```|' "$iph"
+run "$p" -- bug create --title 'the probe' --body-file "$iph"
+plain_created "$nindent" bug 'Role: `<crew role>` · design: <none, or the doc>' && pass "$nindent"
+
+# 39. #42 — the unwrap #41 shipped opened a span holding exactly one stub, and `item-task.md` writes its
+#     design path as two stubs side by side inside one span, so the one line a task body cites its design
+#     on was a line the scan could not report either. The unwrap now opens a span holding nothing but
+#     stubs, however many, and both tokens are named. Case 33 cannot see this: its span holds one stub, so
+#     it passes with the count still fixed at one.
+ntwo="body_placeholders reports a span holding two stubs and nothing else"
+tph=$(bug_body C15)
+sed -i 's|^Claiming that item exits 3 and names no failing check\.$|Claiming that item exits 3 and names no failing check, and the design it was filed against still reads `<profile:designs><slug>` as the template ships it.|' "$tph"
+run "$p" -- bug create --title 'the probe' --body-file "$tph"
+refused "$ntwo" 'refused: unfilled template placeholder — <profile:designs>' \
+  'refused: unfilled template placeholder — <slug>'
+
+# 40. #42 — the length half of the pairing rule, which cases 37 to 39 cannot see: a run of n backticks is
+#     closed by a run of exactly n, never by the first run that follows. A double span is how a body quotes
+#     a backtick — `` ``Role: <crew role>`` `` is the only way to write that line without the inner span
+#     being read — so a stray single backtick ahead of one is ordinary prose: it finds no single run after
+#     it and stays literal. Ignore the length and it pairs with the first backtick of the double span
+#     instead, which deletes the stub standing between them and accepts the body, which is #42 again by a
+#     third door. The paragraph holds no single backtick after the stray on purpose: with one there the
+#     equal-length rule pairs with it and this case would witness nothing.
+nrun="body_placeholders pairs a backtick run only with a run of its own length"
+rrph=$(bug_body C16)
+sed -i 's|^Claiming that item exits 3 and names no failing check\.$|Claiming that item exits 3 and names no failing check.\n\nA lone ` backtick stands in this sentence, the stub <an unfilled stub past the stray> stands after it, and the template line reads ``Role: <crew role>`` where only a double span can hold it.|' "$rrph"
+run "$p" -- bug create --title 'the probe' --body-file "$rrph"
+refused "$nrun" 'refused: unfilled template placeholder — <an unfilled stub past the stray>'
 
 if [ "$fails" -eq 0 ]; then echo "PASS"; exit 0; fi
 echo "FAIL ($fails)"; exit 1
