@@ -53,8 +53,15 @@ lacks_re() {
 # ("never blocks"), and the refusal sits in the same clause as the verb, so each file is first split
 # into clauses on `.`, `;` and `:` — a clause that names a toothless check and an obligation to block,
 # and does not refuse it, is a hit. Splitting first is what gives this teeth: a blocking clause added
-# beside a refusing one is judged on its own rather than excused by its neighbour. Zero hits is a
-# non-zero exit from grep, so this check stands alone and is judged on the hits themselves.
+# beside a refusing one is judged on its own rather than excused by its neighbour.
+# Its two limits, so this is not mistaken for a guard that understands the concept. It searches three
+# fixed phrasings and nothing else — `cannot fail`, `could not fail`, `toothless` — so a clause saying
+# `unable to fail` or `a dead assertion` passes unseen; widening that vocabulary is deliberately not
+# attempted, because the five per-file cases below pin the wording instead. And a refusal is
+# recognised only where `never` stands within two words of one of four verbs — `block`, `send`,
+# `request`, `rate`, singular or plural — so `never blocks the change` and `never sends the change
+# back` excuse a clause, while a `never` about anything else in it does not. Zero hits is a non-zero
+# exit from grep, so this check stands alone and is judged on the hits themselves.
 lacks_blocking_on_toothless() {
   local label=$1
   local hits="" f clause
@@ -62,7 +69,7 @@ lacks_blocking_on_toothless() {
     clause=$(tr '\n' ' ' <"$f" | sed 's/\([.;:]\) /\1\n/g' \
       | grep -Ei -- 'cannot fail|could not fail|toothless' \
       | grep -Ei -- 'blocks|p1|fixed before th(e|is) change is offered|sends? the change back|requests? changes' \
-      | grep -Eiv -- 'never')
+      | grep -Eiv -- 'never( +[a-z]+){0,2} +(blocks?|sends?|requests?|rates?)')
     [ -n "$clause" ] && hits="$hits${f#"$root/"}: $clause"$'\n'
   done < <(find "$crew" "$readme" -type f -name '*.md')
   if [ -z "$hits" ]; then pass "$label"; else fail "$label" "a toothless check blocks a change by: $hits"; fi
@@ -135,7 +142,7 @@ needs "$work" "is rated one severity lower and never sends the change back" \
   "$work sends a check that cannot fail on correct code one severity down"
 needs agents/architect.md "Reserve the blocking rating for harm a person can meet" \
   "agents/architect.md reserves the blocking rating for harm a person can meet"
-needs agents/architect.md 'over code that is correct, is a `p2` and never blocks,' \
+needs agents/architect.md 'over code that is correct, is one severity down and never blocks,' \
   "agents/architect.md sends a check that cannot fail on correct code one severity down"
 needs agents/qa-engineer.md "the blocking rating is for harm a person can meet" \
   "agents/qa-engineer.md reserves the blocking rating for harm a person can meet"
@@ -143,7 +150,7 @@ needs agents/qa-engineer.md "is one severity below the anchor's rating and never
   "agents/qa-engineer.md sends a survived mutant over correct code one severity down"
 needs agents/security-engineer.md "The blocking rating answers harm a person can meet" \
   "agents/security-engineer.md reserves the blocking rating for harm a person can meet"
-needs agents/security-engineer.md 'is a `p2` that never blocks this change' \
+needs agents/security-engineer.md 'is one severity down and never blocks this change' \
   "agents/security-engineer.md sends a check that cannot fail on correct code one severity down"
 # The one phrase the five share, asserted on its own because the absence check below searches for it:
 # a file that reworded it would keep its own two cases green while dropping out of the sweep.
@@ -153,6 +160,15 @@ for f in "$review" "$work" $personas; do
 done
 lacks_blocking_on_toothless \
   "no sentence the plugin ships blocks a change on a toothless check"
+
+# #43, the calibration's other half: the downgrade is a claim about the production code, so it owes
+# the same reproduction a finding owes. Asserted in the qa persona alone — the file the rule binds
+# hardest — because without it "the code is correct" is an assertion no second reader can check, and
+# a rule that can be satisfied by assertion is an escape hatch from the three obligations above.
+needs agents/qa-engineer.md "That downgrade carries its own reproduction, exactly as the finding does" \
+  "agents/qa-engineer.md makes the downgrade carry its own reproduction"
+needs agents/qa-engineer.md "the production line quoted, or the command whose output shows the behaviour is right" \
+  "agents/qa-engineer.md names the quoted production line or the command as that reproduction"
 
 # #40 / AC2: the route the reproduction rule leads to. The disjunction above says when a finding
 # stands; this asserts what a claim without one becomes — a question marked *believed* rather than a
