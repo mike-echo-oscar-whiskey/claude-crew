@@ -142,8 +142,12 @@ EOF
 
 lists="$tmp/lists"; mkdir -p "$lists"      # one canned `gh issue list --json` array per kind label
 claimjson="$tmp/claim.json"; : > "$claimjson"
-viewfile="$tmp/view.txt"; : > "$viewfile"              # `show`'s canned item view; empty for every other case
+viewfile="$tmp/view.txt"; : > "$viewfile"              # `show`'s canned item view
 commentsfile="$tmp/comments.txt"; : > "$commentsfile"  # `show`'s canned comment stream
+# A case that wants `show`'s two reads canned points these at those files immediately before its `run`.
+# `run` hands them to the stub and then clears them, so a canned view reaches exactly the one invocation
+# that asked for it: a case appended after this file's last one cannot inherit it by accident.
+show_view="" show_comments=""
 
 ghlog="" ghbody="" out="" rc=0
 # run <project-dir> -- <tracker args...>
@@ -154,9 +158,10 @@ run() {
   ghlog="$tmp/gh.log"; ghbody="$tmp/gh.body"; : > "$ghlog"; : > "$ghbody"
   out=$(cd "$dir" && CREW_PROJECT_DIR="$dir" CREW_GH_LOG="$ghlog" CREW_GH_BODY="$ghbody" \
         CREW_GH_LIST_DIR="$lists" CREW_GH_CLAIM="$claimjson" \
-        CREW_GH_VIEW="$viewfile" CREW_GH_COMMENTS="$commentsfile" \
+        CREW_GH_VIEW="$show_view" CREW_GH_COMMENTS="$show_comments" \
         PATH="$tmp/bin:$PATH" bash "$sut" "$@" 2>&1)
   rc=$?
+  show_view="" show_comments=""
 }
 
 # refused <name> <expected substring>...  -> exit 1, every substring present, no gh call at all
@@ -516,9 +521,11 @@ n9="show prints the item and its comments, in that order, not the comments alone
   printf -- '--\n'
   printf 'claimed-by: hanuman at 2026-10-01T08:12:24+02:00\n'
 } > "$commentsfile"
+show_view=$viewfile show_comments=$commentsfile
 run "$p" -- show 12
 if reported "$n9" 0 'title:' 'OPEN' 'needs-refinement' 'role:agentic-ai-engineer' \
-     'Story: #7' 'Blocked by: none' '## TL;DR' 'The body a lead has to read' 'claimed-by: hanuman'; then
+     'Story: #7' 'Blocked by: none' '## TL;DR' 'The body a lead has to read' 'claimed-by: hanuman' \
+     '--- comments ---'; then
   bline=$(printf '%s\n' "$out" | grep -n 'Story: #7' | head -1 | cut -d: -f1)
   cline=$(printf '%s\n' "$out" | grep -n 'claimed-by: hanuman' | head -1 | cut -d: -f1)
   if [ "${bline:-0}" -ge "${cline:-0}" ]; then
@@ -527,7 +534,24 @@ if reported "$n9" 0 'title:' 'OPEN' 'needs-refinement' 'role:agentic-ai-engineer
     fail "$n9" "show wrote to the board: $(grep -aE 'issue (edit|comment|create)' "$ghlog" | head -1)"
   else pass "$n9"; fi
 fi
-: > "$viewfile"; : > "$commentsfile"
+
+# 16. The commentless item — the state most freshly filed tasks are in. The second read answers nothing,
+#     so the whole output has to be the item plus the separator that says where the comments would have
+#     been: a reader who sees the separator with nothing under it knows there are none, rather than
+#     wondering whether the command stopped early.
+n10="show prints the item and an empty comment stream when the item has no comments"
+show_view=$viewfile show_comments=""
+run "$p" -- show 12
+if reported "$n10" 0 'title:' 'OPEN' 'needs-refinement' 'Story: #7' '## TL;DR' '--- comments ---'; then
+  last=$(printf '%s\n' "$out" | grep -v '^[[:space:]]*$' | tail -1)
+  if [ "$last" != '--- comments ---' ]; then
+    fail "$n10" "the separator must be the last line when there are no comments, got: $last"
+  elif printf '%s\n' "$out" | grep -q 'claimed-by: hanuman'; then
+    fail "$n10" "a comment from an earlier case leaked into the commentless output"
+  elif grep -aqE 'issue (edit|comment|create)' "$ghlog"; then
+    fail "$n10" "show wrote to the board: $(grep -aE 'issue (edit|comment|create)' "$ghlog" | head -1)"
+  else pass "$n10"; fi
+fi
 
 if [ "$fails" -eq 0 ]; then echo "PASS"; exit 0; fi
 echo "FAIL ($fails)"; exit 1
