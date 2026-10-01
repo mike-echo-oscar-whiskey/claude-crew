@@ -890,5 +890,93 @@ else
   else pass "$n18"; fi
 fi
 
+# 25. AC 5, #21 — `bug create`, the first of the two kinds the adapter could not create at all, so for half
+#     the kinds there was no creation to refuse at and a lead reached for `gh issue create` instead. The
+#     shape carries no header contract — `validate_plain_body` is the whole judgement — so a missing section
+#     is the refusal to assert, by name, with nothing reaching the board.
+run "$p" -- bug create --title 'the probe' --body-file "$(bug_body C1 '## Evidence')"
+refused "bug create refuses a body missing a required section" \
+  'refused: section "## Evidence" is missing'
+
+# 26. AC 5, #21 — the same for `tech-debt`, which needs its own case rather than sharing case 25's: the two
+#     templates name different sections, so a body conforming for one kind is refused for every section of
+#     the other, and one case over both would pass on an arm that read the wrong template.
+#
+# tech_debt_body <name> [heading to drop] -> a tech-debt body carrying every section its template names,
+# filled, minus the one named. Shaped like `bug_body`, and for the same reason: the sections and the
+# placeholder scan are the whole judgement, so a dropped heading is the only failing check.
+tech_debt_body() {
+  local name=$1 drop=${2:-} f="$tmp/$1.md"
+  {
+    echo 'Found in: the witness for criterion 5 · pre-existing since the adapter was written'
+    echo
+    echo '## TL;DR'; echo
+    echo 'Two of the four item kinds cannot be created through the adapter, so their bodies are never'
+    echo 'checked and an item conforms only if whoever filed it was careful.'; echo
+    echo '## In one paragraph'; echo
+    echo 'The dispatch has an arm per kind for two of the four, and the validator written for the other'
+    echo 'two is never reached from anywhere.'; echo
+    echo '## Cost'; echo
+    echo 'Every bug item on this board was filed with raw gh, so none of them was judged against its own'
+    echo 'shape before it landed.'; echo
+    echo '## Way out'; echo
+    echo 'Give the two kinds the create arm the other two already have.'; echo
+    echo '## Trigger'; echo
+    echo 'The next item filed for either kind.'
+  } > "$f"
+  [ -n "$drop" ] && sed -i "/^$drop\$/d" "$f"
+  echo "$f"
+}
+run "$p" -- tech-debt create --title 'the probe' --body-file "$(tech_debt_body C2 '## Trigger')"
+refused "tech-debt create refuses a body missing a required section" \
+  'refused: section "## Trigger" is missing'
+
+# 27. AC 5, #21 — the conforming half of both arms: exit 0, the number on stdout, the kind label on the
+#     create call, and the submitted body stored as it was handed in. Neither kind has a header the adapter
+#     writes, so there is nothing to subtract from the stored body and a section from the middle of each is
+#     what proves it survived. The kind label is asserted here and not through `created_q`, whose label test
+#     is a family of patterns: a create that applied `task` to a bug would satisfy that test and lose the
+#     label `lint --kind` and the board's own filters read the shape off.
+n_plain="bug create and tech-debt create store a conforming body under the kind label"
+plain_ok=1
+plain_created() { # <case name> <kind label> <expected body substring>
+  local name=$1 kind=$2 want=$3 cmd
+  if [ "$rc" -ne 0 ]; then fail "$name" "expected exit 0 from $kind create, got $rc; output: $out"; return 1; fi
+  case "$out" in *99*) ;; *) fail "$name" "expected the new number on stdout, got: $out"; return 1 ;; esac
+  cmd=$(grep -a -m1 "issue create" "$ghlog")
+  if [ -z "$cmd" ]; then fail "$name" "gh was never asked to create a $kind"; return 1; fi
+  case "$cmd" in *"--label $kind"*) ;; *) fail "$name" "the create command carries no $kind label: $cmd"; return 1 ;; esac
+  case "$(cat "$ghbody")" in *"$want"*) ;; *) fail "$name" "expected '$want' in the created $kind body"; return 1 ;; esac
+  return 0
+}
+run "$p" -- bug create --title 'the probe' --body-file "$(bug_body C3)"
+plain_created "$n_plain" bug 'The claim succeeds and the failing checks come back as warnings.' || plain_ok=0
+run "$p" -- tech-debt create --title 'the probe' --body-file "$(tech_debt_body C4)"
+plain_created "$n_plain" tech-debt 'Give the two kinds the create arm the other two already have.' || plain_ok=0
+if [ "$plain_ok" = 1 ]; then pass "$n_plain"; fi
+
+# 28. #21 — `KINDS` judges four kinds and `ensure-labels` minted two of their labels, so `lint --kind
+#     tech-debt` named a kind nothing on a fresh board could carry. `bug` exists on this board only because
+#     GitHub creates it in every new repository; a consumer of the plugin would have neither. Colour,
+#     description and `--force` are asserted because that is how every other label here is minted, and
+#     GitHub caps a description at 100 characters — a 422 against a real board otherwise.
+n_kinds="ensure-labels mints the bug and tech-debt kind labels"
+dbug='Reported defect in behaviour that shipped (crew pipeline)'
+ddebt='Debt carried deliberately; its severity is a p1/p2/p3 label'
+kinds_ok=1
+check_kind_label() { # <name> <colour> <description>
+  local line
+  line=$(grep -a -m1 "label create $1 " "$ghlog")
+  if [ -z "$line" ]; then fail "$n_kinds" "$1 was never created"; kinds_ok=0; return; fi
+  case "$line" in *"--color $2"*) ;; *) fail "$n_kinds" "$1 has the wrong colour: $line"; kinds_ok=0; return ;; esac
+  case "$line" in *"--description $3"*) ;; *) fail "$n_kinds" "$1 carries the wrong description: $line"; kinds_ok=0; return ;; esac
+  case "$line" in *--force*) ;; *) fail "$n_kinds" "$1 is not minted with --force, so a re-run fails: $line"; kinds_ok=0; return ;; esac
+  if [ ${#3} -gt 100 ]; then fail "$n_kinds" "$1's description is ${#3} characters, GitHub caps it at 100"; kinds_ok=0; fi
+}
+run "$p" -- ensure-labels
+check_kind_label bug D73A4A "$dbug"
+check_kind_label tech-debt 8D6E63 "$ddebt"
+if [ "$kinds_ok" = 1 ]; then pass "$n_kinds"; fi
+
 if [ "$fails" -eq 0 ]; then echo "PASS"; exit 0; fi
 echo "FAIL ($fails)"; exit 1

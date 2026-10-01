@@ -5,6 +5,8 @@
 #   tracker.sh ensure-labels
 #   tracker.sh story create --title T --body-file F                  -> prints issue number
 #   tracker.sh task  create --story N --title T --role R --body-file F [--blocked-by "12,13"]
+#   tracker.sh bug create --title T --body-file F                    -> prints issue number
+#   tracker.sh tech-debt create --title T --body-file F              -> prints issue number
 #   tracker.sh claim N                (assign @me, label in-progress, comment claimed-by; warns when the body is off-shape)
 #   tracker.sh lint [<n> | --all | --kind story|task|bug|tech-debt] [--quiet]   (read-only conformance report)
 #   tracker.sh release N --to in-review|blocked|open|done   (done: lane labels off, item closed, assignee kept)
@@ -44,6 +46,12 @@ ROLES=(product-owner architect frontend-engineer backend-engineer integration-en
 ensure_labels() {
   "${GH[@]}" label create story             --color 0E6B52 --description "Functional story (crew pipeline)" --force >/dev/null
   "${GH[@]}" label create task              --color 1D76DB --description "Implementation task under a story" --force >/dev/null
+  # The other two kinds in KINDS, which lint already judges: without these a consumer of the plugin has no
+  # label to carry either shape, so `lint --kind tech-debt` names a kind nothing on its board can be. `bug`
+  # is minted in GitHub's own colour on purpose — GitHub creates it in every new repository, and `--force`
+  # would otherwise repaint a label the project already uses for exactly this.
+  "${GH[@]}" label create bug               --color D73A4A --description "Reported defect in behaviour that shipped (crew pipeline)" --force >/dev/null
+  "${GH[@]}" label create tech-debt         --color 8D6E63 --description "Debt carried deliberately; its severity is a p1/p2/p3 label" --force >/dev/null
   "${GH[@]}" label create in-progress       --color FBCA04 --description "Claimed by a session" --force >/dev/null
   "${GH[@]}" label create in-review         --color 5319E7 --description "PR open, awaiting merge" --force >/dev/null
   "${GH[@]}" label create blocked           --color B60205 --description "Cannot proceed; see body" --force >/dev/null
@@ -290,6 +298,23 @@ story_create() {
   [ -n "$title" ] && [ -f "$body" ] || { echo "story create needs --title and --body-file" >&2; exit 1; }
   validate_story_body "$body" || exit 1
   "${GH[@]}" issue create --title "$title" --label story --body-file "$body" | issue_number_from_url
+}
+
+plain_create() { # <kind> --title T --body-file F — bug and tech-debt
+  # No --role, and the shape is why. A task's role is a flag because the adapter owns that write: it puts
+  # `role:<r>` on the item, and `next` and `status` read that label off task rows to say who owns the work.
+  # Neither command looks at a bug or a tech-debt item, so the label buys no mechanism there — and the two
+  # shapes do not ask for one. `item-tech-debt.md` names no role at all; `item-bug.md` carries its role in
+  # the body's own first line, written by the role that wrote the body, where `check_placeholders` already
+  # refuses it unfilled. A flag would make the adapter write a second copy of a fact the body states, with
+  # nothing holding the two equal — the disagreement `validate_plain_body` avoids by having no header
+  # contract at all. A board that wants the label adds it with `gh issue edit --add-label`, which skips no
+  # check because every check here is on the body.
+  local kind=$1 title="" body=""; shift
+  while [ $# -gt 0 ]; do case "$1" in --title) title=$2; shift 2;; --body-file) body=$2; shift 2;; *) echo "bad arg $1" >&2; exit 1;; esac; done
+  [ -n "$title" ] && [ -f "$body" ] || { echo "$kind create needs --title and --body-file" >&2; exit 1; }
+  validate_plain_body "$kind" "$body" || exit 1
+  "${GH[@]}" issue create --title "$title" --label "$kind" --body-file "$body" | issue_number_from_url
 }
 
 task_create() {
@@ -548,6 +573,7 @@ case "$cmd" in
   ensure-labels) ensure_labels ;;
   story) sub=${1:-}; shift || true; [ "$sub" = create ] && story_create "$@" || { echo "story create ..." >&2; exit 1; } ;;
   task)  sub=${1:-}; shift || true; [ "$sub" = create ] && task_create "$@"  || { echo "task create ..." >&2; exit 1; } ;;
+  bug|tech-debt) sub=${1:-}; shift || true; [ "$sub" = create ] && plain_create "$cmd" "$@" || { echo "$cmd create --title T --body-file F" >&2; exit 1; } ;;
   claim) claim "$@" ;;
   lint) lint "$@" ;;
   release) release "$@" ;;
@@ -555,5 +581,5 @@ case "$cmd" in
   status) status ;;
   show) show "$@" ;;
   comment) comment "$@" ;;
-  *) sed -n '2,14p' "$0"; exit 1 ;;
+  *) sed -n '2,16p' "$0"; exit 1 ;;
 esac
