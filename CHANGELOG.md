@@ -3,6 +3,160 @@
 Per release: what changed, what to do, and what happens to a project that changes nothing. Entries
 are appended, never rewritten — an entry describes the release it names, not the current tree.
 
+## 0.8.2 — 2026-10-01
+
+**The release that makes the placeholder scan a parser instead of a pair of regular expressions, and
+tells a reviewer what the blocking severity is for.** `0.8.1` fixed the stub its scan could not see by
+adding a third patch to a strip that paired backticks by regex from the left; this release retires the
+strip. Pairing from the left meant prose with an odd number of backticks paired two characters that were
+never a span and deleted everything between them — a stub included, which is the one thing the scan exists
+to catch — and a fence indented inside a list item was not a fence at all, protected only by that same
+accidental pairing until one stray backtick before it flipped the pairs. `body_placeholders` is now one
+awk pass with explicit state: a fence is a line, a code span lives inside a paragraph, and nothing pairs
+across a blank line. The other half is a sentence the five files that state the severity obligations did
+not say: a mutation review always finds surviving mutants, and a check that cannot fail over code that is
+correct harms nobody, so it is one severity down and never blocks.
+
+Patch, not minor — and the lead deliberately left the number open this time, so the test is run against
+both halves. The test the last five releases used: a minor is a capability a consumer can now exercise
+that it could not — invoke, pass, file under, have fired — and `0.8.0` added that an existing command
+producing output it could not produce before counts when the documents had expressly said it would not.
+#42 reaches the five commands that share the scan — `story create`, `task create`, `bug create`,
+`tech-debt create` and `lint` — and every one keeps the contract every document states: an unfilled
+template stub is refused, a fence quotes anything. Three bodies they accepted are refused and one they
+refused is accepted, and in each case the document was already on the new side. `0.8.1` wrote "a fence
+now quotes anything, stub included" and shipped a fence rule that held only at column 0; it wrote that a
+span holding nothing but a stub is a stub and unwrapped exactly one token, leaving `item-task.md`'s own
+design line — two tokens side by side — as the second stub the scan could never report; and no release
+ever wrote that two stray backticks switch the scan off between them. #43 reaches the review step, the
+work step and three personas, which already said that a finding carries its reproduction, that severity
+is anchored to what a second reader can check and not to taste, and that a reviewer may depart from the
+anchor with the one reason stated. This release says what the anchor's blocking rating is *for*, names one
+departure as the rule rather than the reviewer's call, and makes the downgrade carry the evidence the
+finding already had to. Nothing new can be invoked, passed or filed; no label, hook, template, profile key
+or item section moves; and the obligation that moves is the one `0.8.1` shipped as a patch under #40,
+calibrated.
+
+The case for a minor is real and worth stating, and it is stronger than `0.8.1`'s was. The reach is
+wider: three refusals and one acceptance where `0.8.1` carried one of each, over the same five commands,
+so an existing board holds more bodies `lint` now reports differently. And `0.8.1`'s own argument turned
+on "the contract the number guards has not moved, only the code that was short of it" — for a persona or
+a skill there is no code apart from the document, so when the review step moves, the contract moves with
+it, and a consumer whose reviewers are agents receives a verdict yesterday's reviewers were told not to
+give. Neither survives the question the test asks. Reach was ruled on in `0.8.1`: a patch that may never
+move a `lint` verdict would make every scan correction a minor, and the number would stop saying whether
+there is anything new to learn. And the verdict was producible yesterday: the departure clause already let
+a reviewer rate a survived mutant on a touched line below the anchor with its reason, and the lead already
+accepted or contested it; what moved is that the departure stopped being discretionary for one named
+case, and that the obligation of evidence now runs both ways. A minor would tell an upgrader there is
+something new to do, and there is not — there is a rule to read, which this entry states, and a `lint`
+run to make.
+
+The payload moved by all four commits. `c39f762` and `ec352d0` change `plugins/crew/scripts/tracker.sh`;
+`56ee153` changes `plugins/crew/skills/review/SKILL.md`, `plugins/crew/skills/work/SKILL.md`,
+`plugins/crew/agents/architect.md`, `plugins/crew/agents/qa-engineer.md` and
+`plugins/crew/agents/security-engineer.md`; `1495230` changes the same three personas again. The
+`docs/design/item-data.md` half of `c39f762` and the `tests/` halves of all four earn nothing by this
+repository's rule and ride along.
+
+### What changed
+
+- **A paragraph bounds a code span, so a stray backtick is literal text** (#42). `0.8.1` paired backticks
+  from the left across the whole body, so a body with a filled role, a lone backtick, a stub and a second
+  lone backtick was accepted silently: the two lone backticks paired as a span and the stub between them
+  was stripped as its content. The scan now reads one paragraph at a time — lines joined, because a span
+  and a stub both wrap across a line break, and joined no further than the next blank line, because a
+  code span cannot cross one. Inside a paragraph a run of n backticks opens a span only when a run of
+  exactly n closes it later; an unclosed run is literal. A lone backtick therefore has no closer in its
+  own paragraph, is text, and the stubs after it are read and refused as
+  `refused: unfilled template placeholder — <token>`, from every one of the five commands. What stays,
+  because it is CommonMark's own rule: within a single paragraph a stray backtick still pairs with a later
+  run of its own length.
+- **A span holding nothing but stubs is unwrapped, however many** (#42). `0.8.1` unwrapped a span whose
+  entire content was one `<…>` token, which reached `item-bug.md`'s `` `<crew role>` `` and not
+  `item-task.md`'s `` `<profile:designs><slug>` ``. A span whose content is nothing but `<…>` tokens is now
+  unwrapped before the strip, so a task whose design line is still the template's stub is refused, one
+  line per token: `refused: unfilled template placeholder — <profile:designs>` and the same for `<slug>`.
+  `` `<div> plus prose` `` is still prose, and `List<string>` is still a type.
+- **A fence is recognised indented up to three spaces, and no further** (#42; the bound is `ec352d0`). A
+  fence inside a list item is now a fence, so a stub quoted there is safe whatever backticks precede it —
+  under `0.8.1` an indented opener was not matched, its three backticks went to the span strip, and one
+  lone backtick earlier in the body exposed the quoted stub and refused the body; that is the one body
+  this release accepts that `0.8.1` refused. The bound stops where CommonMark stops: at four spaces a line
+  is an indented code block and its backticks are content, and while the opener accepted any indent two
+  markers four spaces deep paired as a fence and swallowed a stub between them — the same silent
+  acceptance as the stray backticks, through the door the bound closes. A tab matches no space, so a
+  tab-indented marker is not a fence. The rest of the fence rule holds: nothing between an opener and its
+  closer is read, and an opener with no closer protects nothing.
+- **The cost, unchanged in kind and slightly wider in reach: a bare backticked `<token>` in prose is
+  refused, and now two of them side by side too.** `0.8.1` named the single token; the unwrap above makes
+  `` `<a><b>` `` indistinguishable from a shipped stub as well. A body that means the literal tokens
+  writes them in a fence, where nothing is read, or puts any other word beside them in the span.
+- **One portability assumption, recorded in prose because this file has no heading for one.** The fence
+  bound is an ERE interval expression inside awk — `/^ {0,3}```/` — the first in these scripts. POSIX
+  requires intervals and every mawk since 1.3.4 has them; gawk, which this release was cut and gated on,
+  has them. On an awk without them the opener never matches, so no fence is recognised and a stub quoted
+  inside one is read as prose and refused — a false refusal, never a silent acceptance. In this repository
+  such an awk fails three fence witnesses on the first gate run rather than misbehaving quietly.
+- **A check that cannot fail over correct code is one severity down and never blocks** (#43). A mutation
+  review of the placeholder scan found five surviving mutants, every one on code that was correct, and two
+  rated at the blocking severity sent a finished change back; a mutation review always finds survivors, so
+  a rule that blocks on them is a rule under which nothing ships. The five files that state the severity
+  obligations — the review step, the work step, and the architect, qa-engineer and security-engineer
+  personas — now bound what may block by what the blocking rating is for: harm a person can meet —
+  behaviour that is wrong, a silent acceptance where a refusal was owed, data lost. A check that cannot
+  fail for the reason it was written, on code that is correct, is one severity below the anchor's rating
+  and never sends the change back; it is fixed in the same change when that change wrote the check, and
+  becomes its own tracker item when the check was already there. Each file says it in its own register —
+  the qa-engineer persona, which the rule binds hardest, as the departure its mutation anchor already
+  allows — and the three existing obligations keep their wording: no word was deleted from any shipped
+  file.
+- **The downgrade carries its own evidence** (#43, `1495230`). Every finding owed a reproduction while the
+  downgrade that stops a finding blocking owed none, and "the code is correct", asserted and not shown, is
+  an escape hatch out of the three obligations rather than a judgement a second reader can check. The
+  qa-engineer persona now requires, with the downgrade, the production line quoted or the command whose
+  output shows the behaviour is right. Two personas that rated the downgrade a flat `p2` where the others
+  said one below the anchor now say one below the anchor too, so a mutant in a file the change touched
+  gets the same answer from every file.
+
+### What to do
+
+1. Install it: `claude plugin install crew@claude-crew`.
+2. **Run `scripts/tracker.sh lint --all` once.** Three shapes of body passed under `0.8.1` and are
+   reported now: a stub standing between two stray backticks in one paragraph; a task whose design line
+   still reads `` `<profile:designs><slug>` `` — filed under any release up to `0.8.1`, it is the second
+   stub no scan could see; and a stub between two code-fence markers indented four spaces or more. One
+   shape is the reverse: a body `0.8.1` refused for a stub quoted inside an indented fence passes now and
+   needs nothing. Edit a reported body so the stub names its value; nothing else about the item needs to
+   move.
+3. **A new body that wants a literal `<token>` — or two side by side — puts them in a fence**, or beside
+   another word in the span; `0.8.1`'s route is unchanged and now covers the pair.
+4. **Read the calibration once if your reviewers are agents.** A `Survived` mutant on a line the change
+   touched is still `p1` by the anchor; a reviewer who finds the production code correct and the test
+   unable to fail now rates it one below, says so as the departure, and quotes the line or the command that
+   shows the code is right, and the lead does not send the change back for it. Nothing to re-render and
+   nothing for `--refresh` to offer: no template, profile key, label, hook or item section moved.
+5. **Check your awk only if it is neither gawk nor a mawk from 1.3.4 on.** Run any create against a body
+   that quotes a stub inside a fence: a refusal where `0.8.1` accepted it means the interval expression
+   is missing, and the fix is an awk that has it.
+
+### What happens if a project changes nothing
+
+1. **`lint` may report an item it passed yesterday, for the three shapes above, and may pass one it
+   refused.** Each is the rule every release published — an unfilled stub is refused, a fence quotes
+   anything — now held; the `/crew:status` count of items still matching the item shape, which comes from
+   `lint --all --quiet`, moves by the same number.
+2. **Two creates that used to succeed can be refused**: a body with a stub between two stray backticks in
+   one paragraph, and a body with a span holding nothing but `<…>` tokens, `item-task.md`'s design line
+   left as shipped included. Both answer `refused: unfilled template placeholder — <token>`, exit 1, and
+   create nothing, as every refusal does. One create that used to be refused succeeds: a stub quoted in a
+   fence inside a list item.
+3. **A review that would have blocked may not.** A reviewer reading the installed personas rates a
+   toothless check over correct code one severity down, with its evidence, and the work step does not send
+   the change back for it. No command's output or exit code moves for it.
+4. **Everything else is identical.** No label, hook, item section, profile key or template changes, and
+   `--refresh` on any profile behaves exactly as it did under `0.8.1`.
+
 ## 0.8.1 — 2026-10-01
 
 **The release that keeps a promise `0.7.0` published and did not keep.** `0.7.0` said the placeholder
