@@ -42,9 +42,9 @@ needed. This is the section that may name technology; everything above it may no
 
 - `path` — <what changes there>
 
-<H in the Size line is the length of this list. Files matching <profile:generated> are counted in G
-and do not spend the cap: nobody reviews them line by line. When the profile declares no generated
-paths, every file in this list counts.>
+<H in the Size line is the length of this list. Files matching one of the profile's generated paths
+are counted in G instead and do not spend the cap: nobody reviews them line by line.
+Generated paths: <profile:generated>>
 
 ## Tests (RED first)
 
