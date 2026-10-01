@@ -32,8 +32,8 @@ technical-writer: README.md (Install, Using it, Roles, Model per role, Layout) m
 
 build:   -
 clients: -
-test:    bash plugins/crew/scripts/tests/subagent-model.test.sh && bash plugins/crew/scripts/tests/tracker.test.sh && bash plugins/crew/scripts/tests/review-contract.test.sh
-gates:   claude plugin validate . && for f in plugins/crew/scripts/*.sh plugins/crew/scripts/tests/*.sh; do bash -n "$f" || exit 1; done && jq empty .claude-plugin/marketplace.json plugins/crew/.claude-plugin/plugin.json plugins/crew/hooks/hooks.json && bash plugins/crew/scripts/tests/subagent-model.test.sh && bash plugins/crew/scripts/tests/tracker.test.sh && bash plugins/crew/scripts/tests/review-contract.test.sh
+test:    bash plugins/crew/scripts/tests/subagent-model.test.sh && bash plugins/crew/scripts/tests/tracker.test.sh && bash plugins/crew/scripts/tests/review-contract.test.sh && bash plugins/crew/scripts/tests/model-roster.test.sh
+gates:   claude plugin validate . && for f in plugins/crew/scripts/*.sh plugins/crew/scripts/tests/*.sh; do bash -n "$f" || exit 1; done && jq empty .claude-plugin/marketplace.json plugins/crew/.claude-plugin/plugin.json plugins/crew/hooks/hooks.json && bash plugins/crew/scripts/tests/subagent-model.test.sh && bash plugins/crew/scripts/tests/tracker.test.sh && bash plugins/crew/scripts/tests/review-contract.test.sh && bash plugins/crew/scripts/tests/model-roster.test.sh
 deploy:  -
 
 Gates grow with the repo: when a Codex layout lands, its validation joins the gate line. The first
@@ -69,5 +69,5 @@ the `test:` and `gates:` lines above.
 
 - The copy this session runs on is the installed cache (~/.claude/plugins/cache/claude-crew/crew/<version>/), not this checkout; an edit here is only live after reinstall or `claude --plugin-dir ./plugins/crew`.
 - Hook and skill paths are resolved through `${CLAUDE_PLUGIN_ROOT}`; a hard-coded path breaks every install but the author's.
-- architect, qa-engineer and security-engineer are pinned to `fable`; scout to `haiku`. A pinned model whose allowance is exhausted stops the pipeline with a 429 (seen 2026-09-04): the lead re-issues that run at the persona's default tier or below and names the downgrade (operating model rule 13); see README "Model per role".
+- architect and security-engineer are pinned to `fable`; scout to `haiku`. A pinned model whose allowance is exhausted stops the pipeline with a 429 (seen 2026-09-04): the lead re-issues that run at the persona's default tier or below and names the downgrade (operating model rule 13); see README "Model per role".
 - The tracker line above still names the `claude-crew` remote; the planned rename to `crew` moves it, and this line must follow.

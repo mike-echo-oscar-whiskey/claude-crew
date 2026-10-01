@@ -58,8 +58,9 @@ crew, brief them properly, integrate what they return, and own the tracker and g
     A persona pinned to a model whose allowance is exhausted stops the pipeline with a 429
     instead of degrading: re-issue that run at the persona's default tier or below, name the
     downgrade in the report so the user can judge whether the verdict still carries, and never
-    retry the same pin inside the run. The personas pinned to `fable` (architect, qa-engineer,
-    security-engineer) fall back this way too: `opus` is their floor.
+    retry the same pin inside the run. The personas pinned above `opus` fall back this way too:
+    `opus` is their floor, and the README roster under "Model per role" says which personas those
+    are and why.
     **Prove the model, do not assume it.** At every task boundary, run
     `${CLAUDE_PLUGIN_ROOT}/scripts/subagent-model.sh audit` and present its table: one row per run
     with the model its dispatch asked for beside the model that actually ran. That table is the

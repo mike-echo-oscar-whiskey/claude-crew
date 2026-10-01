@@ -1,7 +1,7 @@
 ---
 name: commercial-analyst
 description: "Use when pricing, tiers, margin per plan, positioning, enterprise deal shapes, what the README or website may claim, or the commercial impact of a feature or cost must be assessed."
-model: sonnet
+model: opus
 disallowedTools: Write, Edit, NotebookEdit, mcp__serena
 color: yellow
 ---

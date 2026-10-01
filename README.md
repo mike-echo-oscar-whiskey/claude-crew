@@ -82,33 +82,56 @@ generated code) are declared in Result and the lead decides.
 
 ## Model per role
 
-Set in each persona's frontmatter (`model:`), by kind of work rather than by role prestige:
+One row per persona, keyed by the persona file in `plugins/crew/agents/`. **Default** is that file's
+frontmatter `model:`, verbatim. **Second tier** is the tier the lead passes on the Agent call for the
+other kind of work that persona does, and reads `—` for a persona that does one kind of work.
+**Why this tier** names the runs behind it: the counts are the audit of the 68 subagent runs in the
+2026-09-29/30 session (`scripts/subagent-model.sh audit`), and a persona with no run in that window
+says so instead of borrowing a reason it has not earned.
 
-| Kind of work | Model | Roles |
-|---|---|---|
-| Judgement whose errors no gate catches: the design, the test verdict, the security verdict | `fable` | architect, qa-engineer, security-engineer |
-| Design, implementation and review; output becomes a contract for others | `opus` | backend, frontend, integration, cloud, event-sourcing, genai, agentic-ai, multitenancy, ux-designer |
-| Reading, checking and writing inside a fully bounded brief | `sonnet` | product-owner, technical-writer, commercial-analyst, privacy-and-compliance |
-| Locating evidence for a brief: grep, glob, read, no judgement | `haiku` | scout |
+| Persona | Default | Second tier | Why this tier |
+|---|---|---|---|
+| `agentic-ai-engineer` | `opus` | — | 13 runs on `opus`. The four runs dispatched `haiku` were mechanical edits moved down per call, not a second kind of work. Unchanged. |
+| `architect` | `fable` | `opus` | 4 runs on `fable` for the design itself, 3 on `opus` for the counting half — the thirteen-task plan whose first task shipped 34 files (#716/#717). A design that fits the wrong layer is an error no gate catches. Unchanged. |
+| `backend-engineer` | `opus` | — | No run in the measured window; unchanged. |
+| `cloud-engineer` | `opus` | — | 1 run on `opus`; unchanged. |
+| `commercial-analyst` | `opus` | — | Declared `sonnet` and ran `opus` on its one run in the window. Changed here, `sonnet` → `opus`. |
+| `event-sourcing-engineer` | `opus` | — | 4 runs on `opus`; unchanged. |
+| `frontend-engineer` | `opus` | — | 2 runs on `opus`. The one run dispatched `haiku` was a mechanical edit moved down per call. Unchanged. |
+| `genai-engineer` | `opus` | — | No run in the measured window; unchanged. |
+| `integration-engineer` | `opus` | — | No run in the measured window; unchanged. |
+| `multitenancy-engineer` | `opus` | — | No run in the measured window; unchanged. |
+| `privacy-and-compliance` | `sonnet` | — | No run in the measured window; unchanged. |
+| `product-owner` | `opus` | — | Declared `sonnet` and ran `opus` seven times in the window, every one of them dispatched `opus`; the story it writes is the specification every criterion is proved against. Changed here, `sonnet` → `opus`. |
+| `qa-engineer` | `opus` | `sonnet` | 8 runs on `opus`, 1 on `sonnet`: a mutation review's verdict comes from running Stryker and reading what survived (`opus`); a read-only documentation review does not (`sonnet`). This table listed it under `fable` until the roster landed; the frontmatter has said `opus` since 0.5.6. |
+| `scout` | `haiku` | — | 1 run on `haiku`: locating evidence for a brief, no judgement. Unchanged. |
+| `security-engineer` | `fable` | — | 4 runs on `fable`, 1 on `sonnet`. An exposure nobody named is an error no gate catches. Unchanged. |
+| `technical-writer` | `sonnet` | `haiku` | 4 runs on `sonnet`, 3 on `haiku` for one-line factual corrections — and 3 on `opus`, moved up per call for whole-section prose. What would move the default to `opus`: a logged miss on a README truth pass, or a run that shipped prose the code contradicts. Unchanged. |
+| `ux-designer` | `opus` | — | No run in the measured window; unchanged. |
 
-The three verdict roles are pinned to `fable` because their errors are the ones the gates cannot
-catch: a design that fits the wrong layer, a test that passes for the wrong reason, an exposure
-that nobody named. A pin fails hard when the allowance runs out — every pipeline step stops with a
-429 instead of degrading (seen 2026-09-04) — and the allowance burns in the many specialist runs,
-not in the one lead context. That is why rule 13 of the operating model carries a fallback: the
-lead re-issues the run at the persona's default tier or below (`opus` for these three) and names the
-downgrade in the report, so the user can judge whether the verdict still carries. The same lever
-moves a run up: when a single review needs the depth — a mutation review of a guard, a security
-review of an exposure decision — the lead passes `model` on that Agent call and says so in the brief.
+A tier moves only on named evidence — a logged miss in the audit, a deliverable a run skipped, or a
+verdict that could not be trusted — never on impression, and the run that justifies a move is named
+in this roster when the move is made.
+
+`architect` and `security-engineer` are pinned to `fable` because their errors are the ones the gates
+cannot catch: a design that fits the wrong layer, an exposure that nobody named. A pin fails hard
+when the allowance runs out — every pipeline step stops with a 429 instead of degrading (seen
+2026-09-04) — and the allowance burns in the many specialist runs, not in the one lead context. That
+is why rule 13 of the operating model carries a fallback: the lead re-issues the run at the persona's
+default tier or below (`opus` for those two) and names the downgrade in the report, so the user can
+judge whether the verdict still carries. The same lever moves a run up: when a single review needs
+the depth — a mutation review of a guard, a security review of an exposure decision — the lead passes
+`model` on that Agent call and says so in the brief.
 
 `effort:` is **not** a supported agent-frontmatter key (verified 2026-09-10 against the Claude Code
 hooks and subagent documentation, client 2.1.263): a subagent inherits the *session's* effort level,
-and there is no per-agent lever. The three verdict roles used to carry `effort: high`; the harness
+and there is no per-agent lever. The roles whose verdict no gate checks used to carry
+`effort: high`; the harness
 ignored it, so it is gone rather than left as decoration that reads like a guarantee. The lead
 compensates the only way the harness allows — with the model: the roles whose errors no gate catches
 are pinned a tier up (`fable`), and a single run that needs more depth is moved up per call with
 `model` on the Agent call. If a future release documents a per-agent effort field, this reverses and
-the three pins come back.
+those pins come back.
 
 ## Which model actually ran
 
