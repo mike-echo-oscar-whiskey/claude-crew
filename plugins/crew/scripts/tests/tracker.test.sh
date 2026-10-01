@@ -978,5 +978,49 @@ check_kind_label bug D73A4A "$dbug"
 check_kind_label tech-debt 8D6E63 "$ddebt"
 if [ "$kinds_ok" = 1 ]; then pass "$n_kinds"; fi
 
+# 29. AC 5 — the clause of the criterion that belongs to `task` alone: `## Proves` is the only line tying a
+#     task to the criteria it closes, and a section that names the story but no criterion leaves the story's
+#     Proof map unfillable while every other check passes. `tracker.sh:226` has refused it since the
+#     validator was written and nothing asserted it, so a rewrite that dropped the `AC <n>` test — or an
+#     `## Proves` heading renamed out from under `section_of` — would have been invisible. The section still
+#     carries text, so the refusal to assert is the missing reference, not an empty section.
+noac=$(conforming_task C5)
+sed -i 's|^- `#1 AC 2` — the first-line contract, refused and witnessed$|- `#1` — the first-line contract, refused and witnessed|' "$noac"
+run "$p" -- task create --story 5 --title T --role agentic-ai-engineer --body-file "$noac"
+refused "task create refuses a ## Proves that names no criterion" \
+  'refused: ## Proves names no criterion: it needs at least one "AC <n>" reference'
+
+# 30. AC 5 — "one malformed body per check and per kind", for the placeholder check over a task. Case 5
+#     asserts it for `story` and the two kinds reach it down different paths: in `validate_task_body` the
+#     `check_placeholders` call is the last line before the verdict, after every count, so a `return` or an
+#     early `verdict` reached by any of those counts would skip the scan with every case above still green.
+#     The stub left unfilled here is the one `item-task.md` writes into each `## Files` bullet, which is the
+#     body a role stopped filling in halfway rather than one invented for the case.
+tph=$(conforming_task C6)
+sed -i 's|^- `plugins/crew/scripts/f1.sh` — what changes there$|- `plugins/crew/scripts/f1.sh` — <what changes there>|' "$tph"
+run "$p" -- task create --story 5 --title T --role agentic-ai-engineer --body-file "$tph"
+refused "task create refuses a surviving template placeholder" \
+  'refused: unfilled template placeholder — <what changes there>'
+
+# 31. AC 5 — and for the two kinds that reach the scan through `validate_plain_body`, whose own
+#     `check_placeholders` call is a second copy of the line: breaking it leaves cases 25 to 27, 29 and 30
+#     green, so the task case above says nothing about these two. One case over both kinds, each left
+#     holding the stub its own template writes — the two templates name different sections, so a single arm
+#     would prove only the kind it happened to read. The tech-debt stub spans two lines on purpose: the scan
+#     joins the body before it strips code spans, and a stub that wraps has to be refused whole.
+n_plainph="bug create and tech-debt create refuse a surviving template placeholder"
+plainph_ok=1
+bph=$(bug_body C7)
+sed -i 's|^The claim succeeds and the failing checks come back as warnings\.$|<The behaviour in one sentence, stated so a test can assert it.>|' "$bph"
+run "$p" -- bug create --title 'the probe' --body-file "$bph"
+refused_q "$n_plainph" \
+  'refused: unfilled template placeholder — <The behaviour in one sentence, stated so a test can assert it.>' || plainph_ok=0
+dph=$(tech_debt_body C8)
+sed -i 's|^The next item filed for either kind\.$|<The event that turns this into a story: "the next change to X", "before the first paying customer",\n"when the second caller appears". A debt item with no trigger is never picked up.>|' "$dph"
+run "$p" -- tech-debt create --title 'the probe' --body-file "$dph"
+refused_q "$n_plainph" 'refused: unfilled template placeholder' \
+  '<The event that turns this into a story' 'A debt item with no trigger is never picked up.>' || plainph_ok=0
+if [ "$plainph_ok" = 1 ]; then pass "$n_plainph"; fi
+
 if [ "$fails" -eq 0 ]; then echo "PASS"; exit 0; fi
 echo "FAIL ($fails)"; exit 1
