@@ -232,12 +232,15 @@ An agent review is a net under your own, never a substitute for it. A review bri
 and the criteria and nothing the people who did the work wrote about it; one round is the ceiling;
 and a contested finding goes to you rather than to a second pass in the same session.
 
-Nothing in the gate checks what this README and the two manifests claim about the plugin's own
-shape. `claude plugin validate .` reads the manifests' structure, `jq empty` their syntax, and
-`scripts/tests/model-roster.test.sh` holds the "Model per role" table's Default column against the
-persona frontmatter — that is the whole of it. The skill set, the counts in Layout and the `17` in
-both manifest descriptions are true by review only, which is why neither description enumerates the
-skills: an enumeration that goes stale is invisible to every check here, and one did.
+Little in the gate checks what this README and the two manifests claim. `claude plugin validate .`
+reads the manifests' structure, `jq empty` their syntax, `scripts/tests/model-roster.test.sh` holds
+the "Model per role" table's Default column against the persona frontmatter, and
+`scripts/tests/review-contract.test.sh` holds the three sentences above about the review ceiling and
+searches every Markdown file the plugin ships, this README among them, for one that would permit a
+second round. That is the whole of it. Nothing in it reaches what either file claims about the
+plugin's own shape: the skill set, the counts in Layout and the `17` in both manifest descriptions
+are true by review only, which is why neither description enumerates the skills — an enumeration
+that goes stale is invisible to every check here, and one did.
 `tracker.sh lint --all` is deliberately not on the `gates:` line either — it would turn a gate red
 for items nobody has had the chance to bring over.
 

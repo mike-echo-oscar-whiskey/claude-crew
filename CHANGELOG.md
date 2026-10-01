@@ -3,6 +3,106 @@
 Per release: what changed, what to do, and what happens to a project that changes nothing. Entries
 are appended, never rewritten — an entry describes the release it names, not the current tree.
 
+## 0.7.0 — 2026-10-01
+
+Minor, not patch: `tracker.sh bug create` and `tracker.sh tech-debt create` are commands that did not
+exist, and `ensure-labels` mints two labels it did not mint. The rest of the release is a rule the
+lead reads, a template sentence and thirty-four witness cases — but capability was added, and that is
+what decides the number, by the same rule `0.6.1` used to decide it was a patch. No command that
+already existed changes its flags, its output or its exit codes. One action is required of an
+upgrading project, and unlike `0.6.1`'s it is not optional: `ensure-labels` is where the two new
+labels come from, and `tech-debt create` has nothing to file under until it has run.
+
+### What changed
+
+- **`bug create` and `tech-debt create` file through the adapter, so the validator written for them is
+  finally reached** (#21). The dispatch had arms for `story create` and `task create` and none for the
+  other two kinds `lint` already judges, so `tracker.sh bug create …` fell through to the usage block
+  — exit 1, no check named, nothing created — and whoever needed one of those items reached for `gh
+  issue create`, where nothing looks at the body. `validate_plain_body` was written for exactly these
+  two kinds and nothing called it. Both arms take `--title` and `--body-file`, validate the body before
+  a single `gh` call, return every failing check on its own line, create nothing on a refusal, and
+  print the number under the kind's own label on success. Neither takes `--role`, and the shapes are
+  why: `item-tech-debt.md` names no role at all, and `item-bug.md` carries its role in the body's first
+  line, where the placeholder scan already refuses it unfilled — a flag would write a second copy of a
+  fact with nothing holding the two equal. A board that wants `role:<r>` on one of these adds it with
+  `gh issue edit --add-label`, which skips no check, because every check here is on the body.
+- **`ensure-labels` mints `bug` and `tech-debt`** (#21). Without them a consuming board had no label to
+  carry either shape, and `lint --kind tech-debt` named a kind nothing on a fresh board could be.
+  `tech-debt` is new (`8D6E63`). `bug` is minted in GitHub's own `D73A4A` on purpose — GitHub creates
+  that label in every new repository, and the `--force` every label here carries would otherwise
+  repaint one a project already uses for exactly this. The description it does rewrite: an existing
+  `bug` comes out as "Reported defect in behaviour that shipped (crew pipeline)".
+- **A command whose answer the lead will report runs bare and alone** (#18). Rule 16 of
+  `templates/operating-model.md` covered the project's gates only, and a lead's day is mostly other
+  verification — a search, a count, a push, a comparison of two git objects — composed into one call
+  with `&&` to save a round trip. It now states the general discipline with the four specifics the
+  evidence supports: nothing chained after the command being judged, because the exit code that comes
+  back then belongs to the last command in the line; an absence or a count in a call of its own,
+  because `grep -c` and `rg` exit non-zero on zero matches, which is the answer when it stands alone
+  and a poisoned chain when it does not; a pattern written against text that has been read rather than
+  from memory of a file; and two git objects compared as `<ref>^{commit}`, because on an annotated tag
+  `git rev-parse` returns the tag object, which is equal to no commit. Rule 8 and the token-economy
+  bullet point at it instead of restating a narrower version, and step 5 of `/crew:work` names it
+  rather than repeating it.
+- **A rendered task body's `## Files` instruction reads as English where no generated paths are
+  declared** (#25). `item-task.md` put `<profile:generated>` in the middle of a sentence, and the
+  substitution for an absent key is a whole clause, so a profile with no `generated:` key — two of the
+  three measured, this repository's own among them — rendered "Files matching nothing — no
+  `generated:` paths are declared, so every file in this list counts are counted in G and do not spend
+  the cap". Correct, and unreadable, in the first body a new project renders. The placeholder moves to
+  the end of the block on its own labelled line, where a clause and a glob list both fit.
+- **Thirty-four witness cases, over behaviour that already worked and nothing asserted** (#20, #21,
+  #23, #26). `tracker.test.sh` goes from 38 cases to 49: the size checks with the ceiling off
+  (`size-cap: -` still refuses a body stating no size, one whose size is not a number and one whose
+  number disagrees with its `## Files` list, and accepts twenty files so the arm proves the ceiling
+  really is off), a conforming submission that comes back out of the stored body byte for byte under
+  the two header lines, an accepted `Exception:` keeping its reason, every bullet counting where no
+  `generated:` key is declared, a claim on a pre-upgrade item asserted in all four of its clauses, the
+  four cases that hold the two new create arms, a `## Proves` section that names no criterion, and the
+  placeholder scan reached from all four kinds rather than from `story` alone.
+  `review-contract.test.sh` goes from 27 to 50: the severity obligations in all five files that file a
+  finding — a `p1` fixed before the change is offered, a `p2` fixed here when this change caused it or
+  made it reachable, a pre-existing `p2` deferred to one line and its own item — each as a regex over
+  the wording that is actually there, because those five word the sentence differently; and the
+  one-round ceiling both by its presence, in the review step and in the README, and **by its absence**,
+  one check that searches every Markdown file the plugin ships for a sentence permitting a second round
+  and passes on finding none. Both suites were already on the `test:` and `gates:` lines of **this
+  repository's own** `.claude/crew/profile.md`; nothing is asked of your profile.
+
+### What to do
+
+1. Install it: `claude plugin install crew@claude-crew`.
+2. **Re-run `scripts/tracker.sh ensure-labels`.** This is the one required action and nothing does it
+   for you — `/crew:init` runs it at setup, and an upgrade does not run `/crew:init`. Until it has run
+   the board has no `tech-debt` label for `tracker.sh tech-debt create` to file under, and `lint --kind
+   tech-debt` reads a kind the board cannot hold. It is idempotent, `--force` on every label; on a board
+   that already carries a `bug` label the one thing it changes is that label's description.
+3. If `/crew:init` rendered `.github/ISSUE_TEMPLATE/` for you, re-run `/crew:init --refresh`, which
+   also does step 2. `templates/item-task.md` changed, so the task template a human files through keeps
+   the unreadable `## Files` instruction until you do, and `/crew:status` prints `issue templates:
+   rendered from crew <rendered>, installed is 0.7.0 (/crew:init --refresh)` under the board meanwhile.
+   A project that declined that render, or has taken those files over, has nothing to do here.
+
+Nothing else: no profile key, no item section and no flag on an existing command is new. A project that
+has taken a kind over with its own `.claude/crew/items/<kind>.md` keeps that copy, including — for
+`task` — the `## Files` sentence this release fixed in the plugin's.
+
+### What happens if a project changes nothing
+
+Two things, and nothing else:
+
+1. **`tech-debt create` has no label to file under**, and `lint --kind tech-debt` reports on a label the
+   board does not carry. `bug create` works wherever GitHub's own `bug` label is still there, which is
+   every repository that has not deleted it. Neither command existed before this release, so nothing
+   that worked stops working.
+2. **Everything that existed under `0.6.1` behaves as it did.** Rule 16 is read by the lead, not
+   executed; the `## Files` sentence is read by whoever drafts a task body; the witness cases run in
+   this repository against its own profile. Every command keeps its flags, its output and its exit
+   codes — `lint`'s 2, and `next`'s and `status`'s stderr warning beside their exit 0, among them.
+
+There is no migration tooling past those two steps, no version negotiation and no compatibility matrix.
+
 ## 0.6.1 — 2026-10-01
 
 Patch, not minor: nothing is added. Every change below is a fix to behaviour `0.6.0` already
