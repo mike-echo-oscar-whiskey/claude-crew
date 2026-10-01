@@ -148,8 +148,10 @@ commentsfile="$tmp/comments.txt"; : > "$commentsfile"  # `show`'s canned comment
 # A case that wants `show`'s two reads canned points these at those files immediately before its `run`.
 # `run` hands them to the stub and then clears them, so a canned view reaches exactly the one invocation
 # that asked for it: a case appended after this file's last one cannot inherit it by accident. `lane_labels`
-# is the same mechanism for the one lane read `release --to done` makes.
-show_view="" show_comments="" lane_labels=""
+# is the same mechanism for the one lane read `release --to done` makes, and `lint_limit` the same again
+# for `lint`'s fetch cap: a case that wants a saturated fetch lowers the cap to the number of items it
+# canned, rather than canning two thousand bodies to reach the shipped one.
+show_view="" show_comments="" lane_labels="" lint_limit=""
 
 ghlog="" ghbody="" out="" rc=0
 # run <project-dir> -- <tracker args...>
@@ -161,9 +163,10 @@ run() {
   out=$(cd "$dir" && CREW_PROJECT_DIR="$dir" CREW_GH_LOG="$ghlog" CREW_GH_BODY="$ghbody" \
         CREW_GH_LIST_DIR="$lists" CREW_GH_CLAIM="$claimjson" \
         CREW_GH_VIEW="$show_view" CREW_GH_COMMENTS="$show_comments" CREW_GH_LANES="$lane_labels" \
+        CREW_LINT_LIMIT="$lint_limit" \
         PATH="$tmp/bin:$PATH" bash "$sut" "$@" 2>&1)
   rc=$?
-  show_view="" show_comments="" lane_labels=""
+  show_view="" show_comments="" lane_labels="" lint_limit=""
 }
 
 # refused <name> <expected substring>...  -> exit 1, every substring present, no gh call at all
@@ -591,6 +594,29 @@ if reported "$n12" 0 'released #13 -> done'; then
   elif grep -aqE -- '--remove-label (in-progress|blocked)' <<<"$edit"; then
     fail "$n12" "the edit names a label the item does not carry, and GitHub fails it whole: $edit"
   else pass "$n12"; fi
+fi
+
+# 19. #14 — `gh issue list --limit N` is an exact cap and gh stops there, so a kind holding more items than
+#     the cap comes back full and the remainder is never fetched, never judged and — until this case — never
+#     mentioned: the closing line read `3 conforming, 0 not` and the exit said 0, which is exactly what a
+#     clean board prints. A fetch that comes back full is the only signal there is, so it is the one the
+#     report turns into words and a non-zero exit; a fetch under the cap read the kind whole and says
+#     nothing extra, which is the second arm here.
+n13="lint says the limit was hit instead of reporting a partial read as a whole board"
+list_json task "31:$good" "32:$good" "33:$good"
+lint_limit=3
+run "$p" -- lint --kind task
+if reported "$n13" 2 '3 conforming, 0 not' 'task' '3-item limit' 'not judged'; then
+  if grep -aqE 'issue (edit|comment|create)|label create' "$ghlog"; then
+    fail "$n13" "lint wrote to the board: $(grep -aE 'issue (edit|comment|create)|label create' "$ghlog" | head -1)"
+  else
+    list_json task "31:$good" "32:$good"
+    lint_limit=3
+    run "$p" -- lint --kind task
+    if [ "$rc" -ne 0 ]; then fail "$n13" "a fetch under the cap read the kind whole: expected exit 0, got $rc; output: $out"
+    elif [ "$out" != "2 conforming, 0 not" ]; then fail "$n13" "an unsaturated read must print the count alone, got: $out"
+    else pass "$n13"; fi
+  fi
 fi
 
 if [ "$fails" -eq 0 ]; then echo "PASS"; exit 0; fi

@@ -317,9 +317,19 @@ task_create() {
 }
 
 # ---- lint: the same checks over bodies already in hand ------------------------------------------
-# One `issue list --state all --limit 500 --json number,labels,body` per kind — two to four calls for a
-# board of a few hundred, no fetch per item — then the create-time validators over each body. `lint`
-# only reads: it never edits, comments on or closes anything.
+# One `issue list --state all --limit $LINT_LIMIT --json number,labels,body` per kind — one invocation per
+# kind, no fetch per item — then the create-time validators over each body. `lint` only reads: it never
+# edits, comments on or closes anything.
+#
+# `--limit N` is an exact cap, and `gh` pages the API underneath it to satisfy N: 100 items come back per
+# page and it keeps asking until it has N or the kind is exhausted (`gh issue list --repo cli/cli --limit
+# 250` comes back with 250). So the cap costs only the pages a board actually fills — nothing on a small
+# board — and the limit below holds a runaway one to twenty pages per kind. What the JSON cannot say is
+# which of the two ended the fetch: a kind that comes back exactly full may have items the report never
+# read, and printing a count for that reads as a clean board (#14). So the count is compared against the
+# cap, and a full fetch is named in the closing line and exits 2 — a partial read, not a verdict.
+# CREW_LINT_LIMIT lowers the cap, which is how the witness reaches saturation in three items.
+LINT_LIMIT=${CREW_LINT_LIMIT:-2000}
 
 LINT_QUIET=0; LINT_OK=0; LINT_BAD=0
 
@@ -369,7 +379,7 @@ lint_rows() { # <kind, or "" to read it off each item's labels> <the json array 
 }
 
 lint() {
-  local one="" k; local -a kinds=()
+  local one="" k rows count; local -a kinds=() filled=()
   LINT_QUIET=0; LINT_OK=0; LINT_BAD=0
   while [ $# -gt 0 ]; do case "$1" in
     --all)   kinds=("${KINDS[@]}"); shift ;;
@@ -392,10 +402,21 @@ lint() {
     echo "lint takes [<n> | --all | --kind ${KINDS[*]}] [--quiet]" >&2; exit 1
   else
     for k in "${kinds[@]}"; do
-      lint_rows "$k" "$("${GH[@]}" issue list --label "$k" --state all --limit 500 --json number,labels,body)"
+      rows=$("${GH[@]}" issue list --label "$k" --state all --limit "$LINT_LIMIT" --json number,labels,body)
+      count=$(jq 'length' <<<"$rows")
+      if [ "$count" -ge "$LINT_LIMIT" ]; then filled+=("$k"); fi
+      lint_rows "$k" "$rows"
     done
   fi
-  echo "$LINT_OK conforming, $LINT_BAD not"
+  local partial=""
+  if [ ${#filled[@]} -gt 0 ]; then
+    for k in "${filled[@]}"; do partial+="${partial:+, }$k"; done
+    partial=" — the fetch filled its ${LINT_LIMIT}-item limit on: $partial; items of that kind beyond it were not judged"
+  fi
+  echo "$LINT_OK conforming, $LINT_BAD not$partial"
+  # Exit 2 before the verdict, because an incomplete read has no verdict to give: 1 says the items it read
+  # do not all conform, and a caller that treats 1 as "the board is known" must not get it from a partial read.
+  [ ${#filled[@]} -eq 0 ] || return 2
   [ "$LINT_BAD" -eq 0 ]
 }
 

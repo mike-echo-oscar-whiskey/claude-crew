@@ -38,7 +38,9 @@ that changes nothing.
 
 `scripts/tracker.sh lint [<n> | --all | --kind story|task|bug|tech-debt] [--quiet]` is that report:
 it only reads the board, prints one line per item whose body no longer matches its kind's template
-naming each failing check, and exits 1 when any item fails.
+naming each failing check, and exits 1 when any item fails. It reads up to 2000 items per kind (`gh`
+pages the API to get there); if a kind fills that, the closing line names the kind and the limit and
+the exit is 2, because a read that stopped short has no verdict to report.
 
 Rollout policy: items filed before the item shape stay untouched until you run `/crew:conform`,
 which edits one only after you approve its diff. The crew will not file a new item that lacks the
@@ -238,12 +240,6 @@ both manifest descriptions are true by review only, which is why neither descrip
 skills: an enumeration that goes stale is invisible to every check here, and one did.
 `tracker.sh lint --all` is deliberately not on the `gates:` line either — it would turn a gate red
 for items nobody has had the chance to bring over.
-
-`lint` reads at most 500 items per kind (`scripts/tracker.sh:395`) and its closing line reports only
-the conforming and non-conforming counts. On a board past 500 items of one kind the pass is therefore
-partial while its output still reads as complete — the design asked that closing line to say so and
-the implementation shipped without it. Tracked as issue #14; until that is fixed, read `lint` on a
-large board as a lower bound rather than a verdict.
 
 The `/crew:*` skills are human-only under Claude Code, by `disable-model-invocation: true` in all
 ten. Under Codex that key is rejected by its own authoring validator and parsed by neither of its
