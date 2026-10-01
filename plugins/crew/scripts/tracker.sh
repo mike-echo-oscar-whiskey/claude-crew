@@ -108,8 +108,11 @@ body_placeholders() { # <file> -> the template stubs still in the body, one per 
   # One awk pass, three states, and no regular expression that pairs backticks — pairing by regex is what
   # made two stray backticks delete every stub between them (#42) and what made a fence's three backticks
   # expose the lines it was quoting (#41).
-  #   A FENCE is the one structure only a line can show: three or more backticks as a line's first
-  # non-blank characters, indented or not, since a fence inside a list item is still a fence. A fence
+  #   A FENCE is the one structure only a line can show: three or more backticks opening a line, under at
+  # most three spaces of indent — indent at all, since a fence inside a list item is still a fence (#42);
+  # no more than three, because that is where CommonMark stops, a fourth space making the line an indented
+  # code block whose backticks are content. Accept any indent and two four-space markers pair as a fence
+  # and swallow a real stub between them, which is #42 again by the door the bound closes. A fence
   # quotes verbatim material, so nothing between an opener and its closer is scanned at all — that is how
   # a body writes a stub, or a literal `<div>`, and means it. An opener with no closer quotes nothing, so
   # its lines are handed back at the END rather than dropped: one stray fence must not switch the rest of
@@ -156,7 +159,7 @@ body_placeholders() { # <file> -> the template stubs still in the body, one per 
     function flush() { if (para != "") { print despan(para); para = "" } }
     function take(line) { if (line ~ /^[[:space:]]*$/) flush(); else para = (para == "" ? line : para SEP line) }
     BEGIN { SEP = sprintf("%c", 1) }
-    /^[[:space:]]*```/ { if (f) { f = 0; held = "" } else { f = 1 }; next }
+    /^ {0,3}```/ { if (f) { f = 0; held = "" } else { f = 1 }; next }
     f     { held = held $0 "\n"; next }
           { take($0) }
     END   { flush(); n = split(held, lines, "\n"); for (i = 1; i <= n; i++) take(lines[i]); flush() }

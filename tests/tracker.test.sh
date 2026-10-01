@@ -1177,5 +1177,44 @@ sed -i 's|^Claiming that item exits 3 and names no failing check\.$|Claiming tha
 run "$p" -- bug create --title 'the probe' --body-file "$rrph"
 refused "$nrun" 'refused: unfilled template placeholder — <an unfilled stub past the stray>'
 
+# 41. #42 — the cost of letting the fence opener accept any indentation. Case 38 needs an indented fence to
+#     stay a fence, and the rule that bought it matched `[[:space:]]*`, which is wider than a fence is:
+#     CommonMark stops a fence opener at three spaces, because at four the line is an indented code block
+#     and its backticks are content. So two four-space markers — the shape a body reaches for when it wants
+#     to SHOW a fence rather than open one — paired as a fence, and every line between them, an unfilled
+#     stub included, was never scanned. Bounding the indent at three spaces reads those markers as the text
+#     they are, and the stub below them is reported. Case 38's two-space fence is inside the bound and is
+#     unaffected; a leading tab falls out for free, since a tab is four columns and matches no space.
+nwide="body_placeholders reports a stub between two markers indented past a fence's three spaces"
+wph=$(bug_body C17)
+sed -i 's|^Claiming that item exits 3 and names no failing check\.$|Claiming that item exits 3 and names no failing check, and the lines it quotes are indented four spaces rather than fenced:\n\n    ```\n\nunder which the report still reads:\n\n<an unfilled stub between two four-space markers>\n\n    ```|' "$wph"
+run "$p" -- bug create --title 'the probe' --body-file "$wph"
+refused "$nwide" 'refused: unfilled template placeholder — <an unfilled stub between two four-space markers>'
+
+# 42. #42 — the index advance that resumes the scan after a closed span, which no case above could see. A
+#     closed span ends at a run of its own length, so the scan resumes past the WHOLE closing run, not one
+#     character into it: leave a backtick of that run in play and it opens a span of its own, which then
+#     closes on the next single backtick in the paragraph and deletes everything between — the stub
+#     included. The paragraph is a double span, then a stub, then a single span, so the leftover backtick
+#     has a partner to pair with. Case 40 cannot see it: its double span is last in the paragraph, so a
+#     leftover backtick finds no closer and stays literal, and the stub above it is reported either way.
+nadv="body_placeholders resumes the scan past the whole closing run of a span"
+aph=$(bug_body C18)
+sed -i 's|^Claiming that item exits 3 and names no failing check\.$|Claiming that item exits 3 and names no failing check. The template line reads ``Role: <crew role>`` where only a double span can hold it, the stub <an unfilled stub past the double span> stands after it, and `the filled role` closes the sentence.|' "$aph"
+run "$p" -- bug create --title 'the probe' --body-file "$aph"
+refused "$nadv" 'refused: unfilled template placeholder — <an unfilled stub past the double span>'
+
+# 43. #42 — the identity of the character that joins a paragraph's lines, which every case above leaves
+#     free. Joining with a space would read naturally, and that is exactly what breaks: the outer grep
+#     refuses whitespace right after `<`, so a stub that wraps immediately after its opening bracket would
+#     stop being read as one and the body would be accepted. A control character outside the body's own
+#     alphabet joins the lines, the match sees it as an ordinary character, and the final `tr` turns it back
+#     into the space a reader wants. Hence the refusal here names `< slug>`, line break and all.
+nsep="body_placeholders reports a stub that wraps immediately after its opening angle bracket"
+sepph=$(bug_body C19)
+sed -i 's|^Claiming that item exits 3 and names no failing check\.$|Claiming that item exits 3 and names no failing check, and the design path it cites is still the template own <\nslug> token, wrapped across the line break where it was typed.|' "$sepph"
+run "$p" -- bug create --title 'the probe' --body-file "$sepph"
+refused "$nsep" 'refused: unfilled template placeholder — < slug>'
+
 if [ "$fails" -eq 0 ]; then echo "PASS"; exit 0; fi
 echo "FAIL ($fails)"; exit 1
