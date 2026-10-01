@@ -155,8 +155,9 @@ commentsfile="$tmp/comments.txt"; : > "$commentsfile"  # `show`'s canned comment
 # that asked for it: a case appended after this file's last one cannot inherit it by accident. `lane_labels`
 # is the same mechanism for the one lane read `release --to done` makes, and `lint_limit` the same again
 # for `lint`'s fetch cap: a case that wants a saturated fetch lowers the cap to the number of items it
-# canned, rather than canning two thousand bodies to reach the shipped one.
-show_view="" show_comments="" lane_labels="" lint_limit=""
+# canned, rather than canning two thousand bodies to reach the shipped one. `board_limit` is that seam
+# again for the three fetches `next` and `status` make.
+show_view="" show_comments="" lane_labels="" lint_limit="" board_limit=""
 
 ghlog="" ghbody="" out="" rc=0
 # run <project-dir> -- <tracker args...>
@@ -168,10 +169,10 @@ run() {
   out=$(cd "$dir" && CREW_PROJECT_DIR="$dir" CREW_GH_LOG="$ghlog" CREW_GH_BODY="$ghbody" \
         CREW_GH_LIST_DIR="$lists" CREW_GH_CLAIM="$claimjson" \
         CREW_GH_VIEW="$show_view" CREW_GH_COMMENTS="$show_comments" CREW_GH_LANES="$lane_labels" \
-        CREW_LINT_LIMIT="$lint_limit" \
+        CREW_LINT_LIMIT="$lint_limit" CREW_BOARD_LIMIT="$board_limit" \
         PATH="$tmp/bin:$PATH" bash "$sut" "$@" 2>&1)
   rc=$?
-  show_view="" show_comments="" lane_labels="" lint_limit=""
+  show_view="" show_comments="" lane_labels="" lint_limit="" board_limit=""
 }
 
 # refused <name> <expected substring>...  -> exit 1, every substring present, no gh call at all
@@ -335,14 +336,16 @@ board_task() {
   echo "$f.board"
 }
 
-# list_json <kind> <number>:<body file>... -> the canned `gh issue list --json` array for that label
+# list_json <kind> <number>:<body file>... -> the canned `gh issue list --json` array for that label.
+# Every item carries `state: "OPEN"`, which only `status` reads — `.state|ascii_downcase` on a missing
+# field is a jq error, so an item without one fails a case for the wrong reason.
 list_json() {
   local kind=$1 pair n f i=0 filter="["; local -a jqargs=(); shift
   for pair in "$@"; do
     n=${pair%%:*}; f=${pair#*:}; i=$((i + 1))
     jqargs+=(--rawfile "b$i" "$f")
     if [ "$i" -gt 1 ]; then filter+=","; fi
-    filter+="{number:$n,labels:[{name:\"$kind\"}],body:\$b$i}"
+    filter+="{number:$n,state:\"OPEN\",labels:[{name:\"$kind\"}],body:\$b$i}"
   done
   jq -n "${jqargs[@]}" "$filter]" > "$lists/$kind.json"
 }
@@ -540,8 +543,8 @@ if reported "$n9" 0 'title:' 'OPEN' 'needs-refinement' 'role:agentic-ai-engineer
   cline=$(printf '%s\n' "$out" | grep -n 'claimed-by: hanuman' | head -1 | cut -d: -f1)
   if [ "${bline:-0}" -ge "${cline:-0}" ]; then
     fail "$n9" "the comments must follow the body: body at line ${bline:-none}, comment at ${cline:-none}"
-  elif grep -aqE 'issue (edit|comment|create)' "$ghlog"; then
-    fail "$n9" "show wrote to the board: $(grep -aE 'issue (edit|comment|create)' "$ghlog" | head -1)"
+  elif grep -aqE 'issue (edit|comment|create|close)' "$ghlog"; then
+    fail "$n9" "show wrote to the board: $(grep -aE 'issue (edit|comment|create|close)' "$ghlog" | head -1)"
   else pass "$n9"; fi
 fi
 
@@ -558,8 +561,8 @@ if reported "$n10" 0 'title:' 'OPEN' 'needs-refinement' 'Story: #7' '## TL;DR' '
     fail "$n10" "the separator must be the last line when there are no comments, got: $last"
   elif printf '%s\n' "$out" | grep -q 'claimed-by: hanuman'; then
     fail "$n10" "a comment from an earlier case leaked into the commentless output"
-  elif grep -aqE 'issue (edit|comment|create)' "$ghlog"; then
-    fail "$n10" "show wrote to the board: $(grep -aE 'issue (edit|comment|create)' "$ghlog" | head -1)"
+  elif grep -aqE 'issue (edit|comment|create|close)' "$ghlog"; then
+    fail "$n10" "show wrote to the board: $(grep -aE 'issue (edit|comment|create|close)' "$ghlog" | head -1)"
   else pass "$n10"; fi
 fi
 
@@ -628,6 +631,76 @@ if reported "$n13" 2 '3 conforming, 0 not' 'task' '3-item limit' 'not judged'; t
     elif [ "$out" != "2 conforming, 0 not" ]; then fail "$n13" "an unsaturated read must print the count alone, got: $out"
     else pass "$n13"; fi
   fi
+fi
+
+# 20. #16 — the same exact cap as #19, in the command a lead reads first. `next` asked for one page of open
+#     tasks and offered the claimable ones from whatever came back, so past the cap a task was never
+#     offered and nothing looked wrong: silence is the whole symptom. Unlike `lint`, `next` is not a
+#     reporter — the rows it printed are real and claimable — so a full fetch keeps exit 0 and the rows,
+#     and says on stderr that there are more. Four items against a cap of 3 pins the cap to both places
+#     it is used at once: a fetch passing any other number returns a count the comparison then judges
+#     against the cap, and #44 appearing proves the limit never reached `gh`.
+n14="next says the open-task fetch filled its limit instead of offering a partial board as the whole one"
+list_json task "41:$good" "42:$good" "43:$good" "44:$good"
+board_limit=3
+run "$p" -- next
+if reported "$n14" 0 '#41' '#42' '#43' 'open-task fetch filled its 3-item limit' 'not offered'; then
+  if printf '%s\n' "$out" | grep -q '#44'; then
+    fail "$n14" "the fetch read past the limit it passed, so no case can see that limit: $out"
+  elif grep -aqE 'issue (edit|comment|create|close)|label create' "$ghlog"; then
+    fail "$n14" "next wrote to the board: $(grep -aE 'issue (edit|comment|create|close)|label create' "$ghlog" | head -1)"
+  else
+    list_json task "41:$good" "42:$good"
+    board_limit=3
+    run "$p" -- next
+    if [ "$rc" -ne 0 ]; then fail "$n14" "a fetch under the cap read the label whole: expected exit 0, got $rc; output: $out"
+    elif printf '%s\n' "$out" | grep -q 'filled its'; then
+      fail "$n14" "an unsaturated fetch must add nothing to the rows, got: $out"
+    else pass "$n14"; fi
+  fi
+fi
+
+# 21. #16 — `status` makes two fetches and each can fill on its own, so each is judged on its own and
+#     named for what it costs. The rollup filling makes a story read as further from done than it is, and
+#     a count that is a lower bound must not print as a count. The story fetch here reads whole, so its
+#     line must be absent: a saturation line that fires for the wrong fetch is the same silence inverted.
+n15="status says the task rollup filled its limit instead of printing a story as further from done"
+list_json task "51:$good" "52:$good" "53:$good" "54:$good"
+list_json story "1:$good"
+board_limit=3
+run "$p" -- status
+if reported "$n15" 0 '#1' 'tasks 0/3 done' 'task-rollup fetch filled its 3-item limit' 'lower bound'; then
+  if printf '%s\n' "$out" | grep -q 'open-story fetch filled'; then
+    fail "$n15" "the story fetch read its label whole and must not be reported as partial: $out"
+  elif grep -aqE 'issue (edit|comment|create|close)|label create' "$ghlog"; then
+    fail "$n15" "status wrote to the board: $(grep -aE 'issue (edit|comment|create|close)|label create' "$ghlog" | head -1)"
+  else
+    list_json task "51:$good" "52:$good"; list_json story "1:$good"
+    board_limit=3
+    run "$p" -- status
+    if [ "$rc" -ne 0 ]; then fail "$n15" "two fetches under the cap read both labels whole: expected exit 0, got $rc; output: $out"
+    elif printf '%s\n' "$out" | grep -q 'filled its'; then
+      fail "$n15" "an unsaturated board must print the rollup alone, got: $out"
+    else pass "$n15"; fi
+  fi
+fi
+
+# 22. #16 — the other half of `status`: the story fetch filling drops a story off the board entirely, which
+#     is the one of the three failures a lead cannot even infer from what is printed. The rollup reads
+#     whole here, so its line must be absent, and #4 must not appear: the cap has to have reached `gh`.
+n16="status says the open-story fetch filled its limit instead of dropping a story off the board"
+list_json task "61:$good"
+list_json story "1:$good" "2:$good" "3:$good" "4:$good"
+board_limit=3
+run "$p" -- status
+if reported "$n16" 0 '#1' '#2' '#3' 'open-story fetch filled its 3-item limit' 'absent from this board'; then
+  if printf '%s\n' "$out" | grep -q '^#4 '; then
+    fail "$n16" "the story fetch read past the limit it passed, so no case can see that limit: $out"
+  elif printf '%s\n' "$out" | grep -q 'task-rollup fetch filled'; then
+    fail "$n16" "the task fetch read its label whole and must not be reported as partial: $out"
+  elif grep -aqE 'issue (edit|comment|create|close)|label create' "$ghlog"; then
+    fail "$n16" "status wrote to the board: $(grep -aE 'issue (edit|comment|create|close)|label create' "$ghlog" | head -1)"
+  else pass "$n16"; fi
 fi
 
 if [ "$fails" -eq 0 ]; then echo "PASS"; exit 0; fi

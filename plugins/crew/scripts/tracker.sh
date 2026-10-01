@@ -335,6 +335,31 @@ LINT_LIMIT=${CREW_LINT_LIMIT:-2000}
 # itself off silently, which is the very failure this block exists to prevent.
 if ! [[ $LINT_LIMIT =~ ^[1-9][0-9]{0,5}$ ]]; then LINT_LIMIT=2000; fi
 
+# The same exact cap, over the three fetches `next` and `status` make: open tasks, tasks of every state,
+# open stories (#16). They shared nothing before — 200, 500 and 100 — and nothing about a board makes those
+# three numbers differ: the cap is a runaway guard, not a tuning knob, and `gh` pages at 100 and stops when
+# the label is exhausted, so one generous number costs each call only the pages that label actually fills.
+# One limit is therefore one number to reason about, one guard and one seam; which fetch filled is said in
+# the warning, so the three remain distinguishable where it matters.
+#
+# `next` and `status` are NOT reporters, which is the whole difference from `lint`. `lint` earns exit 2
+# because a partial read has no verdict to give; these two print rows a lead acts on, and every row printed
+# is real and claimable. A full fetch there does not invalidate the output, it only makes it incomplete —
+# so stdout and the exit code are left exactly as they were and the warning goes to stderr. `/crew:next`
+# parses stdout as a table and `--auto` starts work on its first row; `/crew:status` presents stdout
+# unchanged. A non-zero exit neither skill expects would turn "there is more" into "this failed", and
+# refuse work that is genuinely claimable — a worse failure than the one being fixed.
+# CREW_BOARD_LIMIT lowers the cap, which is how the witness saturates in three canned items.
+BOARD_LIMIT=${CREW_BOARD_LIMIT:-2000}
+# Bounded for the reason LINT_LIMIT is: a non-numeric value makes the `-ge` exit 2 with "integer expected",
+# which `if` reads as false, switching the check off in silence.
+if ! [[ $BOARD_LIMIT =~ ^[1-9][0-9]{0,5}$ ]]; then BOARD_LIMIT=2000; fi
+
+board_saturated() { # <count> <what filled> <what it costs the reader> -> one stderr line when the fetch came back full
+  [ "$1" -ge "$BOARD_LIMIT" ] || return 0
+  echo "warning: the $2 fetch filled its ${BOARD_LIMIT}-item limit, so $3" >&2
+}
+
 LINT_QUIET=0; LINT_OK=0; LINT_BAD=0
 
 kind_of_labels() { # <json array of label NAMES> -> the first kind label it carries, or ""
@@ -481,8 +506,8 @@ blockers_open() { # prints 1 if any "Blocked by: #a, #b" issue is still open
 }
 
 next() {
-  "${GH[@]}" issue list --label task --state open --limit 200 --json number,title,labels,assignees,body \
-  | jq -c '.[] | select((.assignees|length)==0) | select([.labels[].name] | (index("in-progress") or index("in-review") or index("blocked")) | not)' \
+  local rows; rows=$("${GH[@]}" issue list --label task --state open --limit "$BOARD_LIMIT" --json number,title,labels,assignees,body)
+  jq -c '.[] | select((.assignees|length)==0) | select([.labels[].name] | (index("in-progress") or index("in-review") or index("blocked")) | not)' <<<"$rows" \
   | while read -r row; do
       n=$(jq -r .number <<<"$row"); body=$(jq -r .body <<<"$row")
       [ "$(blockers_open "$body")" = "0" ] || continue
@@ -490,12 +515,15 @@ next() {
       story=$(grep -oE '^Story: #[0-9]+' <<<"$body" | grep -oE '[0-9]+' || true)
       printf '#%s\t%s\tstory #%s\t%s\n' "$n" "$role" "${story:-?}" "$(jq -r .title <<<"$row")"
     done
+  # After the rows, because it qualifies them: the rows above are claimable, there are simply more.
+  board_saturated "$(jq 'length' <<<"$rows")" open-task "claimable tasks beyond it are not offered here"
 }
 
 status() {
-  local tasks; tasks=$("${GH[@]}" issue list --label task --state all --limit 500 --json number,title,state,labels,assignees,body)
-  "${GH[@]}" issue list --label story --state open --limit 100 --json number,title,labels \
-  | jq -r '.[] | "\(.number)\t\(.title)"' \
+  local tasks stories
+  tasks=$("${GH[@]}" issue list --label task --state all --limit "$BOARD_LIMIT" --json number,title,state,labels,assignees,body)
+  stories=$("${GH[@]}" issue list --label story --state open --limit "$BOARD_LIMIT" --json number,title,labels)
+  jq -r '.[] | "\(.number)\t\(.title)"' <<<"$stories" \
   | while IFS=$'\t' read -r sn st; do
       sub=$(jq -c --arg s "Story: #$sn" '[.[] | select(.body | startswith($s))]' <<<"$tasks")
       total=$(jq 'length' <<<"$sub"); done_=$(jq '[.[] | select(.state=="CLOSED")] | length' <<<"$sub")
@@ -505,6 +533,9 @@ status() {
       printf '#%s  %s\n    tasks %s/%s done, %s in progress, %s in review, %s blocked\n' "$sn" "$st" "$done_" "$total" "$prog" "$rev" "$blk"
       jq -r '.[] | "    #\(.number) [\(.state|ascii_downcase)] \([.labels[].name | select(startswith("role:"))][0] // "-") \(.title)\(if (.assignees|length)>0 then " @" + (.assignees[0].login) else "" end)"' <<<"$sub"
     done
+  # Two fetches, each able to fill on its own, so each is judged on its own and named for what it costs.
+  board_saturated "$(jq 'length' <<<"$tasks")" task-rollup "every story's task counts are a lower bound"
+  board_saturated "$(jq 'length' <<<"$stories")" open-story "stories beyond it are absent from this board"
 }
 
 # `--comments` replaces the view with the comment stream rather than adding to it, so the title, the
