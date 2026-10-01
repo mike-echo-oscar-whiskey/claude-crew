@@ -21,7 +21,7 @@ genai-engineer: disabled
 agentic-ai-engineer: owns the 17 personas in plugins/crew/agents/, the skills in plugins/crew/skills/, hooks/hooks.json, the templates and every bash script in plugins/crew/scripts/ (there is no backend-engineer here); see roles/agentic-ai-engineer.md
 multitenancy-engineer: disabled
 commercial-analyst: disabled
-qa-engineer: no test suite exists; the gate is syntax and manifest validation (see Commands); smoke-run a change with `claude --plugin-dir ./plugins/crew`; see roles/qa-engineer.md
+qa-engineer: four bash witnesses live in plugins/crew/scripts/tests/ (subagent-model, tracker, review-contract, model-roster), each invoked as `bash plugins/crew/scripts/tests/<name>.test.sh` and each on the `test:` and `gates:` lines below, so a gate run exercises all four alongside the syntax and manifest validation. Behaviour no witness reaches — a hook firing, a skill loading — is proven by a smoke run with `claude --plugin-dir ./plugins/crew`; see roles/qa-engineer.md
 security-engineer: hooks execute shell on every SessionStart and UserPromptSubmit; tracker.sh writes to GitHub through the user's gh token; no secrets stored in the repo
 cloud-engineer: disabled
 ux-designer: disabled
