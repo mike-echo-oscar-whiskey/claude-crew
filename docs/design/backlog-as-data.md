@@ -1,8 +1,11 @@
-# ♻️ refactor(crew): the machine facts of an item leave its body for a data file in the repository, and the body keeps only what a person reads
+# ♻️ refactor(crew): the backlog is authored as data in the repository, and every item's body on the tracker is rendered from it
 
-Architect, 2026-09-30. Status: **proposed** — design only; no release is reserved for it, and the
-task list is not part of this document. Sections are numbered §1–§9 so tasks can cite them; the ten
-questions the brief put are mapped to decisions at the end.
+Architect, 2026-09-30; amended 2026-10-01 for four decisions Kris took that day (§10). Status:
+**proposed** — design only; no release is reserved for it, and the task list is not part of this
+document (it is registered on the tracker once approved). Sections are numbered §1–§10 so tasks can
+cite them; the ten questions the brief put, and the four decisions of 2026-10-01, are mapped to
+decisions at the end. The file was `item-data.md` until 2026-10-01: that name described stripping
+bodies, which §10 reverses, and its owner did not recognise it as his own idea.
 
 Every `tracker.sh` citation below names a function or an expression inside one, never a line.
 Line numbers were tried and rotted twice in two commits (#38 found all eight wrong and re-derived
@@ -57,14 +60,18 @@ agents/scripts." A literal tracker attachment was investigated and ruled out: `g
 --attach` takes images and videos only, appends them to the body as a Markdown reference, and there
 is no attachment or asset field on the read side, so an agent cannot fetch one back as data.
 
-The inversion this design works out is **not** "render the body from the data". It is: the machine
-facts leave the body entirely. There is no renderer, so nothing ever overwrites prose a person edited
-on the tracker, and no multi-line prose ever sits inside JSON.
+The inversion this design works out **is** "render the body from the data" — Kris, 2026-10-01,
+reversing what this paragraph said until then (D15). The record of an item is two files in the
+repository, data and prose; the body on the tracker is output, rendered by the adapter, and nothing
+reads a body to decide anything. The earlier text here foreclosed a renderer so that "nothing ever
+overwrites prose a person edited on the tracker"; that protection is given up knowingly, and D15
+says what a person does instead. Multi-line prose still never sits inside JSON (D17).
 
-Constraints that bind every decision below: `jq` is the only data dependency a consumer has (it is on
-every profile's `gates:` line already); boards filed under 0.6.0 keep working unchanged; there is no
-CI, so a consumer's `scripts/local-gates.sh` and the plugin's own commands are the only enforcement
-points; `tracker.sh` stays the adapter boundary and the schema encodes nothing GitHub-shaped.
+Constraints that bind every decision below: `jq` and `python3` (3.9 or later, standard library
+only — D16) are the only data dependencies a consumer has, and `jq` is on every profile's `gates:`
+line already; boards filed under 0.6.0 keep working unchanged; there is no CI, so a consumer's
+`scripts/local-gates.sh` and the plugin's own commands are the only enforcement points;
+`tracker.sh` stays the adapter boundary and the schema encodes nothing GitHub-shaped.
 
 ## §1 — What leaves the body and what stays
 
@@ -72,13 +79,14 @@ points; `tracker.sh` stays the adapter boundary and the schema encodes nothing G
 
 Today's task body carries, in prose clothing: `Story: #n`, `Blocked by:`, `Role:` with its
 `design:` pointer, `Size: <H> … <T> …`, `Split line:`/`Exception:`, a `## Proves` list of criterion
-references and a `## Files` bullet list. The data file instead carries the story, the role, the
-blockers, the design pointer, the criteria proved, the file list and the exception licence. The body
-keeps `## TL;DR`, `## In one paragraph`, `## Goal`, `## Tests (RED first)` and `## Done when`, and
-gains one prose section, `## Split line`, because the seam a task is cut at is a sentence about the
-work and belongs with the other sentences — #7's and #8's split lines run four lines each and would
-have been the multi-line prose this design keeps out of JSON. A body starts at `## TL;DR`: no header
-lines at all.
+references and a `## Files` bullet list. The data file instead carries the title, the story, the
+role, the blockers, the design pointer, the criteria proved, the file list and the exception licence.
+The prose file (D17) keeps `## TL;DR`, `## In one paragraph`, `## Goal`, `## Tests (RED first)` and
+`## Done when`, and gains one prose section, `## Split line`, because the seam a task is cut at is a
+sentence about the work and belongs with the other sentences — #7's and #8's split lines run four
+lines each and would have been the multi-line prose this design keeps out of JSON. The body on the
+tracker is rendered from both (D15): its header lines, `## Files` and `## Proves` are output the
+adapter derives from the data, and no program reads them back.
 
 Two numbers of the old `Size:` line are computed, never declared. H is the length of `files` minus the
 entries matching the profile's `generated:` globs, G is those entries — one `jq` read and the same
@@ -89,11 +97,13 @@ the section says the task is test-free" stays a body check.
 
 Bugs get the same file as tasks, because a bug carries a `Size:` line and a `## Files` list too
 (`templates/item-bug.md`): leaving bugs on prose would keep the `Size:` regex alive for one kind.
-Stories and tech-debt items carry no size contract and get no file; a story's criterion ids are
-numbering of prose, like headings, and stay where they are.
+Stories and tech-debt items were to get no file because nothing in them was countable; D19
+reverses that — every kind has a file, a story's criterion ids are data, and the reason is
+uniformity by construction rather than countability.
 
-*Forecloses:* a body rendered from the file; a `Size:` that a person types; a `## Files` section in a
-body; a file for a kind that has nothing countable in it.
+*Forecloses:* a body a person writes on the tracker; a `Size:` that a person types; a fact a
+program reads from a body; a kind without a file. (Until 2026-10-01 this list opened with "a body
+rendered from the file"; D15 reverses it.)
 
 ### D2 — One file per item at `.claude/crew/items/<id>.json`, and the id is the file name
 
@@ -110,6 +120,9 @@ is a **string**, as the tracker prints it without its sigil — `8.json` here, `
 backend — because an integer id would encode two of the three backends into the schema.
 
 *Forecloses:* a second root beside `.claude/crew/`; a `number` field; an integer item id.
+
+*Amended 2026-10-01 (D17):* the directory is `.claude/crew/backlog/`, not `items/`, and an item is
+two files, `<id>.json` and `<id>.md`. The id-as-file-name rule and the string id stand.
 
 ### D14 — A bug's role leaves its first line for the file; a tech-debt item changes in nothing
 
@@ -149,8 +162,11 @@ alive for one kind" reads as though a bug's `Size:` line is parsed today; no arm
 types that nothing ever checks — the same defect one degree worse, so the decision stands.
 
 *Forecloses:* a `--role` flag on `bug create`; a bug whose role stays on a header line while its other
-facts move to the file; a data file for a tech-debt item; a separate validator shape for a bug with a
-file; a `role:<r>` label written on a bug by anything but the adapter from the file.
+facts move to the file; a separate validator shape for a bug with a file; a `role:<r>` label written
+on a bug by anything but the adapter from the file. (Until 2026-10-01 this list also foreclosed a
+data file for a tech-debt item; D19 reverses that one point — the kind gets a file for uniformity,
+carrying `foundIn` and `since` and nothing else beyond `schema`, `kind` and `title` — and the rest
+of this decision stands.)
 
 ## §2 — The schema
 
@@ -207,8 +223,15 @@ failing check at once, in the form D5 set. There is no JSON Schema file: nothing
 consumer's machine could enforce one, and a schema document nothing refuses rots. The `jq` program is
 the schema; the table above is its prose; `tests/tracker.test.sh` holds the two together.
 
-*Forecloses:* an open key set; a JSON Schema file; a `python3`/`ajv`/`yq` dependency; a note that
-runs to a second line.
+*Forecloses:* an open key set; a note that runs to a second line. (Until 2026-10-01 this list also
+foreclosed a JSON Schema file and a `python3` dependency; D16 reverses both and keeps `ajv` and
+`yq` foreclosed.)
+
+*Amended 2026-10-01 (D16, D17, D19):* the `jq` program and the table above are retired as the
+schema; `plugins/crew/schema/item.schema.json` is the one authority and the example above is read
+against it. The key set grows by `title` (D17) and, per kind, by a story's `criteria` and a
+tech-debt item's `foundIn` and `since` (D19); `proves[]` gains an optional `by` (D15). The closed
+key set and the "every failing check at once" form stand.
 
 ## §3 — Where each fact is read from, and who writes it
 
@@ -235,7 +258,7 @@ Readers therefore change as follows. `status()` rolls tasks up by `parent` (`gh 
 number,parent,…`, one call as today), `next()` reads blockers from `blockedBy` (the same list call
 returns each blocker's number; state is one `issue view` per blocker as now), and neither opens a file.
 `work` step 1 opens the file — and stops when it is not on the branch's base: "no
-`.claude/crew/items/<n>.json` on `<default-branch>`: the plan's change is not merged, or this item
+`.claude/crew/backlog/<n>.json` on `<default-branch>`: the plan's change is not merged, or this item
 predates the data file — `/crew:conform` brings it over". A task is claimable once its plan has
 landed, which is what the consuming project already does by practice (design PR #655 merged before
 #656 started).
@@ -252,13 +275,13 @@ flags retire: they are in the data. The adapter, in this order:
 1. validates the data (D3) and the body (D9) — exit 1 with every refusal, no tracker call;
 2. creates the issue with the kind label, the `role:<r>` label and, for a github tracker, `--parent`
    and `--blocked-by` from the data — this is where the number is born;
-3. moves the validated temp file to `.claude/crew/items/<n>.json` — a rename inside one filesystem,
+3. moves the validated temp file to `.claude/crew/backlog/<n>.json` — a rename inside one filesystem,
    the smallest step that can fail;
 4. prints the number.
 
 If step 2 fails there is nothing to undo. If step 3 fails the issue exists and the file does not: the
 adapter exits 1 and prints the number, the temp path and the one command that finishes it
-(`mv <tmp> .claude/crew/items/<n>.json`); from then on `lint` reports `#n has no data file`, `work`
+(`mv <tmp> .claude/crew/backlog/<n>.json`); from then on `lint` reports `#n has no data file`, `work`
 refuses to start it (D4), and the adapter never creates a second issue for the same body — that is
 the one recovery path, and it is idempotent. If the projection in step 2 is partial (a label set, a
 relation refused), `sync` (D8) repairs it from the file.
@@ -272,8 +295,14 @@ becomes hunks in the PR that a reviewer sees, not a hand edit of an issue. Every
 the PR is opened so a projection is never stale for longer than one task.
 
 *Forecloses:* a number reserved before the issue exists; a second `gh issue create` on retry; a
-`--story`/`--role`/`--blocked-by` flag on `create`; a file edited by a script other than through
-`mv` at create.
+`--story`/`--role`/`--blocked-by`/`--title`/`--body-file` flag on `create`; a file edited by a
+script other than through `mv` at create.
+
+*Amended 2026-10-01 (D15, D17):* `create` takes `--data <d.json> --prose <d.md>` and no body; the
+title is in the data. Step 1 validates both files (D16), step 2 renders the body from them (D15)
+and creates the issue with it, step 3 moves both files to `backlog/<n>.json` and `<n>.md`. The
+recovery for a failed step 3 is the same, for two files. `story create` and `tech-debt create` take
+the same two flags (D19).
 
 ### D6 — The adapter stops appending the `## Tasks` checklist to a story on a backend that renders sub-issues
 
@@ -288,8 +317,11 @@ the story template — a project override may want it, and the on-board validato
 empty (`check_sections` exempt heading) — and the template comment says the adapter no longer fills
 it.
 
-*Forecloses:* an adapter write to a story body after creation; a template contract that names the
-checklist as the rollup.
+*Forecloses:* a template contract that names the checklist as the rollup. (Until 2026-10-01 this
+list also foreclosed an adapter write to a story body after creation; D15 reverses it: the adapter
+writes a story's body whenever it re-renders it — at `task create`, at `sync` — from the record,
+never from the tracker. The checklist append from the tracker's own copy stays retired; `## Tasks`
+is now rendered from the task files that name the story.)
 
 ## §4 — Enforcement: what refuses, where
 
@@ -297,10 +329,10 @@ checklist as the rollup.
 
 | Moment | Who | Checks | On failure |
 |---|---|---|---|
-| create | `tracker.sh task create` / `bug create` | D3 schema; H ≤ `size-cap:` unless `exception`; `design.path` exists; every `proves` criterion exists in the story body (`^<n>\.` under its criteria heading, one `issue view`); body per D9 | refused, nothing created |
+| create | `tracker.sh <kind> create` | D16 schema over the data file; H ≤ `size-cap:` unless `exception`; `design.path` exists; every `proves` criterion exists in the story's data file (`criteria[].id`, no tracker call — D19); prose file per D9 | refused, nothing created |
 | claim | `tracker.sh claim` | the same, read-only, printed as `warning:` lines; an item with no file prints one warning line and is claimed (D7 of 0.6.0 stands) | never refused |
-| before review | `tracker.sh size <n>` in `work` step 4 | H, G, and the branch's `git diff --name-only <base>...HEAD` minus `generated:` minus `.claude/crew/items/*.json`, listing every path the diff touches that `files` does not name; exit 1 when the list is non-empty or H > cap without `exception` | the review does not open; the role adds the paths to `files` in the same change, or the lead briefs an architect for the split, as D11 of 0.6.0 says |
-| gate | the consumer's `gates:` command | `jq empty` over the items; on a branch matching `branch-pattern`, the same diff-versus-`files` check and the cap | red |
+| before review | `tracker.sh size <n>` in `work` step 4 | H, G, and the branch's `git diff --name-only <base>...HEAD` minus `generated:` minus `.claude/crew/backlog/*.json`, listing every path the diff touches that `files` does not name; exit 1 when the list is non-empty or H > cap without `exception` | the review does not open; the role adds the paths to `files` in the same change, or the lead briefs an architect for the split, as D11 of 0.6.0 says |
+| gate | the consumer's `gates:` command | `jq empty` over `backlog/*.json`; on a branch matching `branch-pattern`, the same diff-versus-`files` check and the cap; optionally a real JSON Schema validator over the schema file, if the project has one (D16) | red |
 
 The gate row is honest about what a project gate can and cannot do. It cannot call the plugin: the
 installed copy lives at a versioned path (`~/.claude/plugins/cache/claude-crew/crew/<version>/`), there
@@ -311,11 +343,11 @@ the design fixes once, so a project copies the contract rather than the validato
 
 ```bash
 n=$(git rev-parse --abbrev-ref HEAD | sed -nE 's#^task/([^-]+)-.*#\1#p')   # the profile's branch-pattern
-f=.claude/crew/items/$n.json
+f=.claude/crew/backlog/$n.json
 if [ -n "$n" ] && [ -f "$f" ]; then
   cap=$(sed -nE 's/^size-cap:[[:space:]]*([^[:space:]#]+).*/\1/p' .claude/crew/profile.md); cap=${cap:-15}
   declared=$(jq -r '.files[].path' "$f" | sort)
-  touched=$(git diff --name-only "$(git merge-base origin/master HEAD)"...HEAD | grep -v '^\.claude/crew/items/' | sort)
+  touched=$(git diff --name-only "$(git merge-base origin/master HEAD)"...HEAD | grep -v '^\.claude/crew/backlog/' | sort)
   undeclared=$(comm -13 <(echo "$declared") <(echo "$touched"))   # minus the generated: globs, as the project matches them
   [ -z "$undeclared" ] || { printf 'crew item %s: touched but not in files:\n%s\n' "$n" "$undeclared"; exit 1; }
   jq -e --argjson cap "$cap" '(.exception != null) or ((.files | length) <= $cap)' "$f" >/dev/null || { echo "crew item $n: over size-cap $cap with no exception"; exit 1; }
@@ -344,7 +376,7 @@ disagreement is one line —
 
 ```
 #12   task   blockedBy: file [6], tracker [6, 9] — the file is the record; keep the tracker's change with:
-              jq '.blockedBy += ["9"]' .claude/crew/items/12.json  then  tracker.sh sync 12
+              jq '.blockedBy += ["9"]' .claude/crew/backlog/12.json  then  tracker.sh sync 12
 ```
 
 — and the verdict is fixed: **the file is the record.** It is in git, it was validated when it was
@@ -363,6 +395,12 @@ as not conforming, and the line names the repair.
 *Forecloses:* a second direction (`sync --from tracker`); a `lint` that edits; a verdict that depends
 on timestamps.
 
+*Amended 2026-10-01 (D15, D19):* `lint` adds a fourth comparison, the tracker body against a fresh
+render (`stale render`, diff on request), and a fifth, the title; `sync` writes the title and the
+body too, so "never touches a body" no longer holds — it writes the body from the record and prints
+what it overwrote. "The file is the record" now reads "the files are the record" and is the whole
+reason a web edit is discarded rather than merged.
+
 ### D9 — What `lint` judges in a body under this design, and what it stops judging
 
 For a task or bug **with** a file, the body checks are: every `##` heading of the resolved template
@@ -379,12 +417,17 @@ For a task **without** a file the 0.6.0 task validator runs unchanged and its li
 *Forecloses:* a check that reads a fact from a body when the file holds it; a body check that cannot
 be stated as heading, emptiness, count or placeholder.
 
+*Amended 2026-10-01 (D15, D16):* every check this decision lists runs over the **prose file**, never
+over the tracker body, and the heading set is closed both ways — a data heading in the prose file is
+refused, and so is a heading the template does not name. The tracker body gets exactly one check:
+it equals the render (D8). The `legacy:` validator for an item without files is unchanged.
+
 ## §5 — The body keeps no pointer
 
 ### D10 — No machine-readable line survives in a body, not even a pointer to the file
 
 The mapping from item to file is the number, which the tracker shows on every page and every list, and
-`.claude/crew/items/` is one directory. A pointer line would be the one line `lint` would have to grep
+`.claude/crew/backlog/` is one directory. A pointer line would be the one line `lint` would have to grep
 for, and one line an edit could drop — the class this design retires. Nothing reads a body for a
 fact, so nothing is written there for a reader to find. A reader on the tracker's web page who wants
 the file list opens the PR that carries it; the review reads it in the diff; the role gets it in its
@@ -393,8 +436,11 @@ brief, because `work` step 3 hands the file over beside the body.
 The presence of a file is also the per-item adoption signal (§6): no key in the profile, no line in
 the body.
 
-*Forecloses:* a `Data:` line; a comment carrying a copy of the file; a profile key that says a project
-adopted.
+*Forecloses:* a comment carrying a copy of the file; a profile key that says a project adopted.
+(Until 2026-10-01 this list opened with "a `Data:` line"; D15 supersedes it with a rendered footer
+naming `backlog/<id>` — output, read back by nothing, so the reason given above, "the one line
+`lint` would have to grep for", no longer applies. The adoption signal stays the presence of the
+files.)
 
 ## §6 — Compatibility, versioning and the migration window
 
@@ -435,6 +481,19 @@ the pass is the only time a program writes a file from prose.
 
 *Forecloses:* a fallback that outlives that one minor release; an unfiled item that is silently
 absent once they are gone; a migration by a script that is not shown to the user.
+
+*Amended 2026-10-01 (D15):* the table and the window survive rendering. A board that never adopts
+has no files, so there is nothing to render and nothing is rendered: the prose fallbacks in
+`status()` (`startswith($s)` on `Story: #`) and `next()` (`story_of_body`, `blockers_open`) carry
+its 0.6.0 items for the one minor release exactly as above, and after it they are `unlinked`, loud
+and never rendered over. What changes is the adoption pass, because an item without files cannot be
+brought over by writing one file from its header lines: `/crew:conform` becomes the importer.
+`backlog.py import <kind> <body>` drafts `<n>.json` and `<n>.md` from the body's header lines,
+`## Files`, `## Proves` and sections — still the only time a program writes files from prose — the
+lead shows both files and the render against the current body as a diff per item, and on approval
+commits the files and runs `sync <n>`, whose first write replaces the hand-written body with the
+render. The rule "nothing on the board is edited before the diff is shown and approved" holds for
+that first write; every later `sync` of that item is a projection and asks nothing (D18).
 
 ## §7 — The size contract's three moments, re-stated
 
@@ -477,8 +536,29 @@ They are answered in D14, which also records that `tech-debt` is superseded in n
 
 | 0.7.0 | Under this design |
 |---|---|
-| `item-bug.md`'s first line carrying the role, held only by its neighbouring placeholders | retired for a bug with a file: the role is in the data and the body starts at `## TL;DR` (D1, D10, D14) |
-| `bug create` takes no `--role`, and no `role:<r>` label reaches a bug | `--data-file`, and the adapter writes the label from the file as it does for a task (D5, D8, D14) |
+| `item-bug.md`'s first line carrying the role, held only by its neighbouring placeholders | retired for a bug with a file: the role is in the data and the header line is rendered from it (D1, D14, D15) |
+| `bug create` takes no `--role`, and no `role:<r>` label reaches a bug | `--data --prose`, and the adapter writes the label from the file as it does for a task (D5, D8, D14) |
+
+Four decisions of 2026-10-01 (§10) supersede parts of this document's own 2026-09-30 decisions.
+The earlier text is amended in place where it would mislead, with a dated note; nothing is
+renumbered.
+
+| 2026-09-30 | Under §10 |
+|---|---|
+| Why: "the inversion is **not** render the body from the data" | reversed: the body is rendered output (D15) |
+| D1's first foreclosure, "a body rendered from the file" | reversed (D15) |
+| D1: no file for a story or a tech-debt item | every kind has a file (D19) |
+| D2: `.claude/crew/items/<id>.json`, one file | `.claude/crew/backlog/<id>.json` + `<id>.md` (D17) |
+| D3: the `jq` program is the schema, the table its prose, no schema file, no `python3` | a JSON Schema file read by the plugin's own stdlib Python validator (D16) |
+| D5: `--data-file --body-file`, `--title` | `--data --prose`; the title is data (D15, D17) |
+| D6: no adapter write to a story body after creation | the adapter re-renders a story at `task create` and `sync` (D15) |
+| D7's create-time `proves` check by one `issue view` | from the story's data file, no tracker call (D19) |
+| D8: `sync` "never touches a body" | `sync` writes the body from the record and prints what it overwrote (D15) |
+| D9's body checks | the same checks over the prose file; the body gets one check, equality with the render (D15, D16) |
+| D10: no pointer line in a body | a rendered footer naming `backlog/<id>`, output only (D15) |
+| D12's adoption moment, "write the data file from the body's header lines" | `/crew:conform` imports two files and the first `sync` replaces the body, shown and approved per item (D15) |
+| D14: a tech-debt item changes in nothing | it gets a file carrying `foundIn` and `since` (D19) |
+| "Deliberately not done": a computed Proof map | rendered from `criteria` and the tasks' `proves` (D15, D19) |
 
 ## §9 — What this design does not improve
 
@@ -492,12 +572,13 @@ hunk a reviewer reads.
 
 ## Deliberately not done
 
-- A computed Proof map: with `proves` in data, the story's Task column is one `jq` walk over
-  `.claude/crew/items/`, and a lint line for a row that disagrees with the files is cheap. Not in
-  this design: the story body is untouched by it, and the map's other two columns are prose by
-  D20/D21. It is the next item, and this design makes it a computation rather than a design.
-- A file for stories and tech-debt items (D1).
-- A comment on the issue carrying a link to the file: the number is the path.
+- A template language. A template renders nothing but its headings (D15); loops, conditionals and
+  substitution tokens in a Markdown template would be a second program a project override could
+  break, and the data sections they would express are the adapter's.
+- A declared Python dependency, a venv, or a YAML/JSON-Schema library (D16); `yq`, `ajv`.
+- Conflict detection beyond the diff: `lint` shows that the page differs from the render and
+  `sync` prints what it overwrote; neither keeps a last-rendered copy or a timestamp (D8).
+- A comment on the issue carrying a link to the file: the number is the path, and the footer says so.
 - The consuming project's own documents (`docs/agents/delivery.md`'s four templates, its issue
   format): its conform pass changes them, not this plugin.
 - An Azure DevOps or Jira adapter: the schema is ready for one (string ids, no sigil, relations behind
@@ -516,6 +597,18 @@ hunk a reviewer reads.
   it; the alternative — a header line — is what #4 lost.
 - `legacy:` lines make `lint --all` red on every un-migrated board until #7's pass runs; the count
   says how many, and `/crew:status` already reports the number rather than the colour.
+- A web-page edit is discarded at the next `sync` (D15). It is never discarded unseen — `lint`
+  shows the diff and `sync` prints it — but a person who edits the page and never runs `lint` loses
+  the edit at someone else's `sync --all`. The footer on every body is the mitigation.
+- `sync` projects the checkout it runs in. `work` step 6 runs it from a task branch, so the tracker
+  shows that branch's files until the PR merges; if the PR is rejected, the next `sync` from the
+  default branch restores the body. The default branch is the record of record; `lint` there is the
+  truth.
+- `python3` becomes a runtime dependency (D16). The failure is one line at the top of `tracker.sh`,
+  before any command, on a machine without it; nothing works partially.
+- A story's render depends on other files (D15): adding a task makes the story stale until
+  `task create` re-renders it, which it does in the same run; a hand-written task file makes it
+  stale until `sync`.
 
 ## Question map — the brief's ten questions
 
@@ -531,3 +624,226 @@ hunk a reviewer reads.
 | 8 the three moments | D13: create and before-review are computations; claim unchanged |
 | 9 what is superseded | §8 |
 | 10 what does not improve | §9 |
+
+| Kris, 2026-10-01 | Decision |
+|---|---|
+| 1 render the body from the data | D15, reversing the Why section and D1's first foreclosure; D18 for the template |
+| 2 a schema artefact, not a hand-coded validator | D16: a JSON Schema file, the plugin's stdlib Python validator, a stated subset enforced by refusal |
+| 3 the format is not the decision | D17: JSON data, a sibling Markdown prose file, under `backlog/` |
+| 4 agents keeping a backlog true | D19: the three-command loop, a file for every kind, a total projection |
+| the lead's gap: the template is code | D18: versioned by the release; re-render in bulk; a heading change migrates through `/crew:conform` |
+| the lead's question: does D12 survive | yes, amended: `/crew:conform` imports, the first `sync` replaces the body with approval |
+
+## §10 — The body is rendered output, the schema is a file, and agents keep the backlog true (Kris, 2026-10-01)
+
+Four decisions Kris took on 2026-10-01, after the two reviews, and one gap the lead raised. One of
+them reverses what the Why section and D1 stated twice. D14's convention holds: the earlier text is
+amended in place where it would mislead, each amendment dated, and the decisions are appended,
+never renumbered.
+
+### D15 — The record is two files; the tracker body is rendered from them and is never the record
+
+Kris: "templates plus data make every artefact look the same by construction, and validation
+becomes trivial." An item is **authored** as a data file and a prose file in the repository (D17);
+the body on the tracker is **output**. `tracker.sh render <id>` prints it, `create` writes it, `sync`
+rewrites it, `lint` compares the tracker's copy to a fresh render. A person reads it on the
+tracker; a program reads it nowhere.
+
+What that buys, and why the earlier foreclosure falls: nothing is ever scanned to decide whether an
+item is valid. The validator judges the files (D16); the body is compared whole to a render, as
+bytes, and is either current or stale — there is no third state in which a `Size:` regular
+expression, a bullet count or a first-line match decides anything. The defect family of 2026-10-01
+— a comment and a scanner disagreeing, a changelog and a function disagreeing, a Proof map grading
+a tree that had moved — is the family of two hand-kept copies of one fact. A rendered body is not a
+copy; it is a projection, and a projection can be stale but cannot disagree.
+
+The cost, accepted knowingly: **an edit made to a body on the tracker's web page is overwritten at
+the next `sync`.** Items #19 and #37 of this repository had their criteria amended on the page
+after filing; that workflow is given up. What a person does instead: edit the file —
+`.claude/crew/backlog/<id>.json` for a criterion, a blocker, a role, a file list; `<id>.md` for a
+paragraph — on a branch under the project's git rules, and run `tracker.sh sync <id>`. The edit
+becomes a diff a reviewer reads, which is the reason D5 gave for file lists. Two guards keep the
+loss from being silent: `lint <id> --diff` prints the tracker body against the render as a unified
+diff whenever they differ, under the line "the files are the record; carry this into `<path>` or
+`sync` discards it", and `sync` prints what it overwrote on stderr before it writes. `sync` never
+asks — a bulk pass must not stop per item (D19) — and never refuses: a body is not evidence against
+the files.
+
+What renders, by kind. The body is: a header block the adapter derives from the data (task:
+`Story: #2 · Role: … · Blocked by: #6 · Size: 9 hand-written files (+0 generated) · 3 RED tests`,
+where T is counted in the prose file's `## Tests (RED first)` as D1 says; bug: `Role: … · design: …
+· found …`; tech-debt: `Found in: … · pre-existing since …`; story: none), then the template's
+`## ` headings in template order, each filled either from the data — `## Files`, `## Proves`,
+`## Acceptance criteria`, `## Proof map`, `## Tasks`, the five **data headings**, a closed set the
+adapter owns — or from the prose file's section of the same name (every other heading), then one
+footer line, *Rendered by crew from `.claude/crew/backlog/<id>` — edit the files, not this page.
+Common definition of done: … Merged by …*, with the profile keys substituted. The footer is output
+and is read back by nothing; it exists so the person about to edit the page learns where the edit
+goes. That supersedes D10's foreclosure of a pointer line, whose reason — the one line `lint` would
+have to grep for — is void when `lint` greps nothing.
+
+**A template renders nothing but its headings.** Everything else in `item-<kind>.md` — the stubs,
+the guidance, the leading comment — instructs the author of the prose file and never reaches a
+body; the header, the data sections and the footer are the adapter's, as 0.6.0 D2 already said of
+the four load-bearing lines ("it decides the sections, not these four lines"). A project override at
+`.claude/crew/items/<kind>.md` therefore chooses and orders headings and writes guidance, and cannot
+change how a fact renders. That is what keeps "the template is code" small (D18).
+
+A story's body renders from more than its own files: `## Tasks` and the Proof map's Task and
+Proven-by columns come from a walk over `backlog/*.json` for the tasks whose `story` is this id and
+their `proves` entries — `proves[].by`, filled by the owning role in its own change, is 0.6.0 D21's
+"the test that DID". `task create` therefore re-renders its story after creating the task, which
+replaces D6's checklist append with the one write D6 objected to — a whole-body write — now
+legitimate because the body is output and the record is untouched. The computed Proof map leaves
+"Deliberately not done" — and gains the one check a computed map needs: `lint` reports a closed task
+whose `proves[].by` is still empty, because a criterion proven by nothing named is the hand-kept
+map's rot in a new coat.
+
+Line endings: a body saved from the web page comes back with `\r\n`; `lint` compares after dropping
+`\r` and trailing whitespace, and `sync` writes `\n`. Stated because an agent comparing bytes would
+otherwise report every web-touched item stale forever.
+
+*Forecloses:* a body a person writes on the tracker; a fact a program reads from a body; a template
+that renders text of its own; a `sync` that asks per item; a `sync` that refuses because the page
+differs; a render that depends on the tracker (the files and the profile are its only inputs).
+
+### D16 — The schema is a JSON Schema file, and the validator is the plugin's own standard-library Python, which refuses any keyword it does not implement
+
+Kris: "whatever data format we use on disk, a schema would be very useful as it could be used to
+validate the data on disk." D3 made the `jq` program the schema and a table its prose — two things
+that must agree, the defect family again. Under this decision the shape is one artefact,
+`plugins/crew/schema/item.schema.json`, a JSON Schema in the draft 2020-12 vocabulary with one
+`$defs` entry per kind; the data file's `kind` selects which `$defs/<kind>` it is judged against.
+The schema is the documentation; D3's table is retired.
+
+The lead put three validation shapes while the runtime was bound to `jq`, `sed`, `awk` and `gh`;
+Kris then lifted that: "it does not have to be bash right, it could be python or anything else
+running on linux." The ruling takes the lifting: **validation and rendering are Python 3, standard
+library only, in `plugins/crew/scripts/backlog.py`; the tracker adapter stays bash.** Why Python and
+not a fifty-line `jq` interpreter: a schema interpreter in `jq` is hand-rolled text processing in
+the language this repository rewrote one scanner in three times today (`body_placeholders`, #41,
+#42, `ec352d0`), and would be the incomplete validator that claims completeness. Why standard
+library only, and not `jsonschema`, `jinja2` or `pyyaml`: the plugin is cloned into other people's
+repositories, so an install failure lands on them. A declared dependency fails on a machine without
+`pip`; on every current Debian, Ubuntu and Arch under PEP 668, whose `externally-managed-environment`
+refuses `pip install` outright; and on Debian without `python3-venv`; a venv per plugin-cache
+version would have to be created on first run under a path the plugin does not own, and a Codex
+install has no hook to do it in. A stdlib-only script has one failure mode: no `python3`.
+`tracker.sh` checks for it beside `gh` and `jq` — `command -v python3`, floor 3.9, which is what
+macOS's command-line tools and Ubuntu 22.04 ship — and exits 1 before any command with the one
+install line per platform; nothing works partially without it. Why the adapter stays bash: the `gh`
+plumbing (`lint`'s one list per kind, `claim`, `release`, `next`, `status`) is witnessed and is not
+where today's defects were; the two jobs that need a real language get one, and `backlog.py` never
+calls `gh` or `git` — its inputs are files and the profile, its outputs are text and an exit code.
+
+The validator implements a **stated subset** and refuses the schema itself when it meets a keyword
+outside it: completeness is guaranteed by refusal, not by claim, so a `oneOf` added to the schema
+cannot go silently unchecked. In: `$schema`, `$defs`, `$ref` (to `#/$defs/<name>` only), `title`,
+`description`, `type` (`object`, `array`, `string`, `integer`, `boolean`), `properties`, `required`,
+`additionalProperties` (must be `false` on every object schema; one that omits it is refused,
+because an open object is the typo-swallowing shape D3 refused), `items` (one schema), `enum`,
+`const`, `minItems`, `maxItems`, `uniqueItems`, `minLength`, `maxLength`, `pattern`, `minimum`,
+`maximum`. Out, deliberately: `if`/`then`/`else`, `oneOf`/`anyOf`/`allOf`/`not`,
+`dependentRequired`, `format`, `patternProperties`, `unevaluatedProperties`, `$dynamicRef`, a
+remote `$ref`. Every per-kind difference is expressed by selecting `$defs/<kind>`, never by a
+conditional. Because the file is a valid draft-2020-12 document within that subset, a project that
+has a real validator (`check-jsonschema`, `ajv`) may run it over `.claude/crew/backlog/*.json` in
+its own gate; the plugin never requires one, and a witness in this repository holds the schema to
+the subset.
+
+Three checks are not expressible in the schema and are the validator's own, named so no reader
+expects the schema to carry them: every `proves` entry names a `criteria[].id` in the story's data
+file; `design.path` exists in the checkout; H ≤ `size-cap:` unless `exception`. They print as
+`refused:` lines in D5's form, after the schema's, every failing check at once.
+
+The prose file has a schema too, and it is the template: its `## ` headings must be exactly the
+template's prose headings — a data heading in the prose file is refused ("`## Files` is rendered
+from the data; remove it"), an unknown heading is refused for D3's reason, a missing one is refused,
+each must be non-empty, and no template stub may survive. The placeholder scan moves to
+`backlog.py` in the same change as the prose validator, with the witness cases of #41 and #42
+carried over and the awk form of `body_placeholders` deleted, so one scanner serves both the prose
+file and the `legacy:` bodies for the window.
+
+*Forecloses:* a validator that ignores a keyword it does not implement; an object schema without
+`additionalProperties: false`; a declared Python dependency; a second validator in the plugin (the
+`jq` program of D3); `yq`, `ajv`, `pip`; a `backlog.py` that calls `gh` or `git`.
+
+### D17 — JSON for the data, a sibling Markdown file for the prose, both under `.claude/crew/backlog/<id>.*`
+
+Kris: "I do not care if it is json/yaml or the next popular format." Chosen on two criteria — prose
+pleasant to write and to diff, and what is on the machine — and not brought back. The data file is
+`<id>.json`; the prose is `<id>.md`, one `## ` heading per prose section of the kind's template.
+JSON because `jq` is already present, the consumer's gate (D7) reads two keys of it, and Python's
+`json` is standard library. Not YAML or TOML: neither is in the standard library (TOML is read-only
+from 3.11, above the floor), a hand-rolled subset parser is the failure D16 refuses, and `pyyaml` is
+the dependency D16 refuses. Not JSON alone: five or six paragraphs of prose in a JSON string are
+written with `\n` and read in a diff as one line. Not one Markdown file with a data front matter:
+the gate's `jq -r '.files[].path' "$f"` and `input_filename` would both need an extraction step
+first, in every project. Two files is one more file per item and nothing else; a `.json` without its
+`.md`, or the reverse, is refused.
+
+The directory moves from D2's `.claude/crew/items/` to `.claude/crew/backlog/`. The old choice
+shared a directory with the template overrides (`items/task.md`); with a prose file per item,
+`8.md` beside `task.md` is two kinds of file under one glob. "Backlog" is Kris's word for what this
+keeps true. The id stays the file name and stays out of the file (D2); `title` joins the data
+because the adapter writes it, `sync` repairs it, and the story's `## Tasks` and Proof map render
+task titles from files alone.
+
+*Forecloses:* YAML or TOML on disk; prose inside JSON; a front-matter single file; a data file
+under `.claude/crew/items/`; a `--title` flag.
+
+### D18 — Templates are versioned by the plugin release; a heading change migrates the record through `/crew:conform`, any other change is a re-render
+
+The lead's gap: if the template produces the artefact, the template is code, and a change to it
+makes every future body differ from every past one unless they are re-rendered — which quietly
+defeats the uniformity that is the point. The answer has two halves, and D15's rule "a template
+renders nothing but its headings" is what makes both small.
+
+A change to **how a fact renders** — the header, a data section, the footer — is code in
+`backlog.py`, versioned by the plugin release and by nothing else: no template version number,
+because a second number to bump is the release-rule drift this repository's profile records twice.
+Such a change is a minor release by the changelog's own test (a consumer sees output it could not
+before). After the upgrade every body is a stale projection: `lint --all` counts them (`N stale
+render`), and `sync --all` re-renders in one pass. Re-rendering is **mandatory in effect and bulk by
+design**: `lint` is red until it runs, and it needs no per-item approval because nothing authored
+changes — D11's "a migration is a diff the user sees per item" is about the record, and a
+projection is not the record. An item rendered under the previous release is stale, never invalid,
+and never refused.
+
+A change to a template's **headings** — a prose heading renamed, added or removed, in the shipped
+template or in a project override — changes what the prose files must contain, so it is a change to
+the record and travels as D11 says: a `schema` bump when shipped, applied by `/crew:conform` as a
+diff per item, never on read; a project changing its own override runs the same pass over its own
+board. A change to a template's guidance or comment renders nothing and migrates nothing.
+
+*Forecloses:* a template version number; a re-render that asks per item; a heading change applied
+on read; a body refused for the release it was rendered under.
+
+### D19 — The purpose is agents keeping a backlog true, so every maintenance act is a command over the files, idempotent and bulk, and every kind has a file
+
+Kris: "AI assisted backlog management is the only way forward." Every failure of 2026-10-01 was
+maintenance, not authoring: eight of eight citations wrong in a document agents wrote, a changelog
+claim false for four releases, a Proof map grading a moved tree. This design is therefore judged on
+an agent updating many items correctly, and that fixes the shape:
+
+- **The maintenance loop is three commands.** Edit files (`jq` over `backlog/*.json` for a bulk
+  fact — a role renamed, a design path moved; an editor for prose), `tracker.sh lint --all` to see
+  every refusal, disagreement and stale render at once, `tracker.sh sync --all` to project. No step
+  edits a body by hand, comments, or asks per item; `lint` is read-only and `sync` is idempotent,
+  so a pass can be re-run after a partial failure with no second effect.
+- **Every kind has a file.** D1 gave stories and tech-debt none because nothing in them was
+  countable; under D15 the reason is uniformity by construction and one validation path, and a
+  story is precisely where the hand-kept copies rotted. A story's criteria are data
+  (`criteria: [{id, text}]`, ids 1..n checked by the validator rather than by `validate_story_body`'s
+  prose walk), its Proof map is computed (D15), and the `proves` cross-check runs from files alone —
+  the check D4 said only the adapter could make, the consumer's gate can now make too. A tech-debt
+  item's two facts, `foundIn` and `since`, are data and the rest is prose.
+- **The projection is total.** `sync` writes the title, the kind label, the `role:<r>` label,
+  `parent`, `blockedBy` by set difference, and the body — everything the tracker holds that the
+  files decide — so a tracker is reproducible from the repository plus each item's number and
+  state.
+- **A brief carries the files, not the page.** `work` step 3 hands the owning role `<n>.json` and
+  `<n>.md`; the role edits those in its change (D5); the lead runs `sync <n>` before the PR.
+
+*Forecloses:* a maintenance step that edits a body by hand; a kind without a file; a per-item
+prompt in a bulk command; a fact that exists on the tracker and not in a file.
