@@ -3,6 +3,117 @@
 Per release: what changed, what to do, and what happens to a project that changes nothing. Entries
 are appended, never rewritten — an entry describes the release it names, not the current tree.
 
+## 0.8.0 — 2026-10-01
+
+**The first release an already-configured project can receive a standard from.** Every release before
+this one could only reach a profile at `/crew:init` time. The profile is rendered once and then belongs
+to the project, and `--refresh` "keeps the user's hand edits and only updates scanned lines" — languages,
+commands, folders, the tracker. `0.7.2`'s entry had to turn that into an instruction: a project that
+wanted the new release rule was told to paste the bullet into its own Definition of done by hand,
+because "no upgrade will deliver it". This is the release that delivers it — and the next template key,
+and the one after that.
+
+Minor, not patch, and the call was close enough that the lead said 0.7.3 first. The test the last three
+releases used is that a capability is something a consumer can now *do* that it could not: invoke, pass,
+file under, have fired. `0.7.2` turned on exactly that distinction when it refused a minor for a shipped
+template bullet — that bullet was something the crew is *measured against*, and any project could already
+have written it into its own profile by hand. This release is the other side of that same line. Receiving
+a new profile key or a new definition-of-done item into an existing profile was not merely awkward to do
+by hand; **no command did it at all**, which is the whole of what #36 was filed as. And two commands that
+already existed now produce output they could not produce before: `/crew:init --refresh` asks questions
+and can write into a section it was documented never to touch, and `/crew:status` prints a line naming
+drift it never measured. Both `0.7.0` and `0.7.2` named "no command that already existed changes its
+output or its exit code" as part of why their number was what it was. Here that sentence is false, and
+it is false in the direction of more capability.
+
+The case for a patch is real and worth stating: the flag already existed, no new command, flag or file
+appears, and `--refresh`'s purpose was already to bring a profile up to date, so this could be read as a
+promise kept rather than a surface added. It does not survive the documents. The promise was expressly
+*not* made — step 8 scoped `--refresh` to scanned lines, and `0.7.2` used that exact wording as proof
+that the bullet could never arrive. Reading this as a patch would have cost two things. A project that
+read `0.7.2` was told to act by hand and that no upgrade would help it, so the version number is the
+only signal that the instruction is now obsolete — and the entire value of this release depends on
+somebody deciding the upgrade is worth running `--refresh` for. And the precedent: if widening a
+documented flag from one compared set to three, with new prompts and new writes, is a patch, then only a
+new command *name* could ever be a minor again, and `0.7.0`'s own bounding sentence about an existing
+command's output would be naming a distinction that never decides anything.
+
+The payload moved by one commit. `c3e8997` changes `plugins/crew/skills/init/SKILL.md` and
+`plugins/crew/skills/status/SKILL.md`; `fd8d6ad` is a `docs/design/` file, which by this repository's
+own release rule earns nothing.
+
+### What changed
+
+- **`/crew:init --refresh` offers what the installed template has and this project's profile lacks —
+  one at a time, as a diff, written only on a yes** (#36). Two sets are compared and nothing else is.
+  **Profile keys, by key name**: the template's top matter (`mode:`, `tracker:`, `default-branch:`,
+  `branch-pattern:`, `designs:`, `generated:`, `size-cap:`, `definition-of-done:`, `merge-authority:`)
+  against the keys the profile declares. `crew_profile_value` reads a key as `^<key>:` and nothing else,
+  so the set of names on each side is the whole comparison; a key lacks when there is no such line at
+  all, or when the line still carries the template's `<…>` placeholder, which every consumer reads as
+  that literal string instead of the absent-key fallback. Values are never compared, and a key the
+  profile has and the template does not is the project's own and is never mentioned — so rewording a
+  value, a comment, a role line or a whole section, or reordering the file, produces no noise.
+  **Definition-of-done items, by the rule each one states**: the project's list is resolved the way a
+  task body resolves it (the path or section name `definition-of-done:` gives, else the profile's own
+  section), and a template bullet is offered only when no bullet in that list speaks to its rule in any
+  words. A bullet that says it differently, more strictly, or as a deliberate exclusion ("this project
+  ships nothing, so no release is ever owed") states it and is not offered, because a project is
+  expected to reword and a textual diff would offer every bullet on every refresh. Where the resolved
+  list is a file other than the profile, the rule goes only into that file, never into both. Each offer
+  stands alone: what it is, the installed version it comes from, a unified diff of the one file it would
+  change, and then a stop. There is no batch yes, a no leaves the file exactly as it stands, and the
+  step only ever inserts — it never rewrites a line, reorders a section or removes anything, so a hand
+  edit cannot be overwritten by it. A non-interactive run — piped or empty stdin, a dispatch into a
+  subagent — prints the diffs it would have shown, says that nothing was written, and offers none of
+  them: **no answer is not an answer.** What this reaches first is the gap it was filed for: a project
+  set up before `0.6.0` declares none of the four item-shape keys and silently takes every fallback, and
+  a project set up before `0.7.2` has a definition of done that says nothing about releases.
+- **Nothing records a decline, so a declined offer comes back at the next refresh** (#36). There is no
+  ledger, and the step says so in the offer rather than pretending otherwise: it cannot tell a
+  deliberate deletion from an item that was simply never offered, so it offers again. Running
+  `--refresh` is therefore not a one-shot you can miss, and declining is not a decision that sticks.
+  The way to make a deletion stick is to write the refusal into the project's own list as one line of
+  deliberate exclusion, which the rule-level comparison above then honours; the way to stop a key being
+  offered is to declare it with the value the project wants, including the literal `-` where the
+  template documents one.
+- **`/crew:status` gains a keys-only drift line** (#36). When the profile lacks a key the installed
+  template has, one line appears under the board: `profile keys: <key>, <key> are in the installed
+  template and not in this profile (/crew:init --refresh offers them)`. It names the keys and never
+  their values, counts a surviving `<…>` placeholder as lacking for the same reason step 5 does, and
+  says nothing when no key is missing or when there is no profile. The definition-of-done half of the
+  same drift is deliberately **not** checked here: whether a project's list already states a shipped
+  rule in its own words is a judgement, and a status run makes none.
+
+### What to do
+
+1. Install it: `claude plugin install crew@claude-crew`.
+2. **Installing alone delivers nothing to an existing profile.** An install replaces the payload under
+   `~/.claude/plugins/cache/<marketplace>/<plugin>/<version>/` and writes no file inside your project.
+   In the whole payload the only thing that writes `.claude/crew/profile.md` is the `init` skill — step 4
+   on a first run, and now step 5 on `--refresh`; every other skill, script and persona only reads it.
+   The one thing the upgrade does give you unasked is the `/crew:status` line above, which *names* the
+   missing keys without touching anything. Note how this differs from `0.7.2`, whose entry had to say
+   that the shipped bullet reached new projects only: that release had no mechanism and said so; this
+   one has one, and it is still opt-in.
+3. **Run `/crew:init --refresh` to receive anything, and answer the offers.** Nothing is written without
+   a yes, one offer at a time, each shown as a diff of the single file it would change. Decline freely:
+   a no changes nothing, and the same offer returns at your next refresh.
+4. **A project set up after this install needs nothing further.** `/crew:init` renders the current
+   template, so every key and every definition-of-done item is already there.
+
+### What happens if a project changes nothing
+
+1. **Its profile stays exactly as it is.** Keys it does not declare keep taking their stated fallbacks —
+   `size-cap: 15`, `definition-of-done:` resolving to the profile's own section, `merge-authority:` the
+   author, `generated:` nothing excluded — and its definition of done keeps saying whatever it says
+   today. Nothing refuses a PR over any of it.
+2. **`/crew:status` says one more line than it used to**, naming the keys the installed template has and
+   the profile does not. That line is the only visible consequence of upgrading and not refreshing.
+3. **Everything else is identical.** No other command's output or exit code moves, no label, hook, item
+   section or script changes, and `--refresh` on a profile that lacks nothing behaves exactly as it did
+   before: scanned lines updated, hand edits kept, no offers made.
+
 ## 0.7.2 — 2026-10-01
 
 **The first release this project owed rather than chose.** Six releases in, every number before this
