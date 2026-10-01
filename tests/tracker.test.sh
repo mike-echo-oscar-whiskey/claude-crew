@@ -1075,16 +1075,20 @@ run "$p" -- bug create --title 'the probe' --body-file "$rph"
 refused "$nrole" 'refused: unfilled template placeholder — <crew role>'
 
 # 34. #41 — the other half of the same line, and the reason the fix is not "stop stripping code spans":
-#     a role that IS filled is written inside backticks by every template and every body on this board, so
 #     a scan that read every backticked `<…>` — or every span — as a stub would refuse every conforming
-#     bug. The body also carries a genuine span with angle brackets in its prose, which is what the strip
-#     is for; both must pass in one body, because a fix that kept the role and dropped the span protection
-#     leaves case 33 green.
-nspan="bug create accepts a filled role written as a code span"
+#     bug, so the unwrap is deliberately narrow and this case is what holds it narrow. Case 27 already
+#     witnesses that a filled role passes; what only this body can see is each restriction on the unwrap:
+#     the inner class forbids `<` and `>`, and nothing may trail the stub inside the span. `<div> plus
+#     prose` is a span the unwrap must NOT open — trailing prose makes it content — and the
+#     `Option<Refusal>` span AFTER it is load-bearing, not decoration: it ends in `>` before a backtick,
+#     so an inner class widened to `<.*>` matches greedily across both spans, the strip then mis-pairs the
+#     two backticks left inside, and `<div>` and `<Refusal>` are reported as stubs. Either widening
+#     therefore refuses this conforming body; neither is visible with one span alone.
+nspan="bug create accepts spans whose angle brackets are prose rather than stubs"
 sph=$(bug_body C10)
-sed -i 's|^Claiming that item exits 3 and names no failing check\.$|Claiming that item exits 3: the refusal reaches the caller as `Option<Refusal>` and names no failing check.|' "$sph"
+sed -i 's|^Claiming that item exits 3 and names no failing check\.$|Claiming that item exits 3 and names no failing check. A span holding `<div> plus prose` is prose, and so is the `Option<Refusal>` the refusal reaches the caller as.|' "$sph"
 run "$p" -- bug create --title 'the probe' --body-file "$sph"
-plain_created "$nspan" bug 'Option<Refusal>' && pass "$nspan"
+plain_created "$nspan" bug '`<div> plus prose`' && pass "$nspan"
 
 # 35. #41 — the second defect in the same function, hit while filing that report. The strip pairs backticks
 #     blindly over the joined body, so a fence's three mis-pair: the first two cancel, the third pairs with
@@ -1092,11 +1096,28 @@ plain_created "$nspan" bug 'Option<Refusal>' && pass "$nspan"
 #     text the fence was protecting. A bug report that quotes a template line verbatim — the one thing an
 #     Evidence section is for — is therefore refused for containing it, and the only way to file this very
 #     report was to indent the block instead of fencing it.
+#     The lone backtick in the sentence above the fence is the case's teeth and must not be tidied away:
+#     with an even count before the fence the strip's own mis-pairing happens to eat the fence's content
+#     too, so the body passes with the fence arm deleted and the case proves nothing. One stray backtick
+#     ahead of the block makes the counts differ — without the arm the strip leaves `<crew role>`,
+#     `<none, or the doc>` and `<where and when>` standing and the body is refused.
 nfence="body_placeholders does not expose a stub quoted inside a fenced block"
 fph=$(bug_body C11)
-sed -i 's|^Claiming that item exits 3 and names no failing check\.$|Claiming that item exits 3 and names no failing check. The template line it was filed from reads:\n\n```\nRole: `<crew role>` · design: <none, or the doc> · found <where and when>\n```|' "$fph"
+sed -i 's|^Claiming that item exits 3 and names no failing check\.$|Claiming that item exits 3 and names no failing check. One lone ` backtick stands in this sentence, and the template line it was filed from reads:\n\n```\nRole: `<crew role>` · design: <none, or the doc> · found <where and when>\n```|' "$fph"
 run "$p" -- bug create --title 'the probe' --body-file "$fph"
 plain_created "$nfence" bug 'Role: `<crew role>` · design: <none, or the doc>' && pass "$nfence"
+
+# 36. #41 — the other half of the fence handling, and the defect this commit exists to close reached
+#     through a second door: an opener whose closer the author forgot. The awk pass is line-at-a-time, so
+#     a fence it never sees closed would swallow every remaining line — one stray ``` and the rest of the
+#     body is never scanned at all, which accepts a body whose role line is still a stub. The END arm hands
+#     those held lines back instead, so the stub after the unclosed opener is reported and the body is
+#     refused. Case 35 cannot see this: its fence closes, and a closed fence takes the `held = ""` arm.
+nheld="body_placeholders still reports a stub below a fence whose closer is missing"
+uph=$(bug_body C12)
+sed -i 's|^Claiming that item exits 3 and names no failing check\.$|Claiming that item exits 3 and names no failing check, and the report quotes the block whose closer its author forgot:\n\n```\nthe quoted line, under which the closer never came\n\n<an unfilled stub the fence never closed over>|' "$uph"
+run "$p" -- bug create --title 'the probe' --body-file "$uph"
+refused "$nheld" 'refused: unfilled template placeholder — <an unfilled stub the fence never closed over>'
 
 if [ "$fails" -eq 0 ]; then echo "PASS"; exit 0; fi
 echo "FAIL ($fails)"; exit 1
