@@ -46,6 +46,13 @@ deploy:  <command or "-">
 
 - gates green, exit code quoted
 - every behaviour change has RED then GREEN evidence in Verification (failing run quoted before the passing run)
+- a release is owed when what this project ships — <the published package, image, paths, or "nothing"> — has
+  changed since the last released version, and the version is then bumped identically everywhere it is
+  declared. A change confined to what the repository keeps for itself (its own agent rules and profile,
+  developer scripts, tests, CI) earns none, and a project that ships nothing never owes one. Cutting the
+  release is the last step of finishing that batch, not something remembered afterwards: skipping it strands
+  shipped work behind the last version, and cutting one for repo-local changes claims a move no consumer can
+  receive.
 - <project-specific item>
 
 ## Exclusive lanes (single-occupancy resources; ask before use when another session may hold it)

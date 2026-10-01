@@ -49,6 +49,7 @@ lacks_re() {
 review=skills/review/SKILL.md
 work=skills/work/SKILL.md
 operating=templates/operating-model.md
+profile=templates/profile.md
 readme="$root/README.md"  # the repository's own README, beside the payload rather than inside it
 personas="agents/architect.md agents/qa-engineer.md agents/security-engineer.md"
 
@@ -116,6 +117,16 @@ needs "$readme" "An agent review is a net under your own, never a substitute for
   "the README calls the agent review a net under the human's own"
 lacks_re '(second|another) (in-session |agent )?(round|pass)[^.]{0,60} (may|can|is allowed|is permitted|if needed|when needed)|(may|can|is allowed to|is permitted to)[^.]{0,40} (second|another) (in-session )?(round|pass)' \
   "no sentence the plugin ships permits a second in-session round"
+
+# #33: the release rule in the shipped profile template — when a release is owed, what earns none,
+# and that cutting it finishes the batch. Stated generally on purpose: a consuming project renders
+# its own definition of done from this file and may ship a library, an image or nothing at all.
+needs "$profile" "a release is owed when what this project ships" \
+  "$profile states when a release is owed"
+needs "$profile" "earns none, and a project that ships nothing never owes one" \
+  "$profile states what does not earn a release"
+needs "$profile" "the last step of finishing that batch, not something remembered afterwards" \
+  "$profile makes cutting the release part of finishing the batch"
 
 if [ "$fails" -eq 0 ]; then echo "PASS"; exit 0; fi
 echo "FAIL ($fails)"; exit 1

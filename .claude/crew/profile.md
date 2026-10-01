@@ -51,6 +51,7 @@ the `test:` and `gates:` lines above.
 - README layout block, roles list and model table match the files and persona frontmatter
 - every persona keeps the shared skeleton: profile first, mandate, not-my-job with owner named, how I work, definition of done, evidence block, output contract, escalate-early
 - version bumped identically in .claude-plugin/marketplace.json and plugins/crew/.claude-plugin/plugin.json on a release commit
+- a release is owed when `plugins/crew/` has changed since the last released version: that directory is the payload an install copies, so it is the only thing a consumer can receive. A change confined to `.claude/crew/`, `tests/`, `docs/` or the README earns none. Cutting the release is the last step of finishing that batch of merges, not something remembered afterwards — `0.6.0` left four commits unreachable past its tag and `0.6.1` left six, both found by accident, and a `0.7.1` was nearly cut for two commits that touched only `.claude/crew/`
 
 ## Exclusive lanes (single-occupancy resources; ask before use when another session may hold it)
 
