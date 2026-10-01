@@ -30,16 +30,16 @@ Development from a checkout: `claude --plugin-dir ./plugins/crew`.
 | Crew review of a PR | `/crew:review 40` |
 | Pick the next claimable task | `/crew:next` |
 | Board, with how many items still match the item shape | `/crew:status` (the count comes from `scripts/tracker.sh lint --all --quiet`; `lint --all` is the per-item report behind it) |
-| Bring items filed before the item shape over to it | `/crew:conform [<n> \| --all]` (drafts the countable fixes with no role, briefs the owning role for new text, and shows you a diff per item before anything is written) |
+| Bring items filed before the item shape over to it | `/crew:conform [<n> \| --all]` (drafts the fixes a body already decides, briefs the owning role for new text, and shows you a diff per item before anything is written) |
 | Whole session as delivery lead | `/crew:on` … `/crew:off` (or `mode: always` in the profile) |
 
 `scripts/tracker.sh lint [<n> | --all | --kind story|task|bug|tech-debt] [--quiet]` is that report:
 it only reads the board, prints one line per item whose body no longer matches its kind's template
 naming each failing check, and exits 1 when any item fails.
 
-Rollout policy: an item conforms to the shape that shipped when it was filed, the crew refuses to
-create one that does not, and older items are brought over in one `/crew:conform` pass — never
-silently, never as a background sweep, and never by refusing a claim.
+Rollout policy: items filed before the item shape stay untouched until you run `/crew:conform`,
+which edits one only after you approve its diff. The crew will not file a new item that lacks the
+shape. A claim on an old item still goes through, with a warning.
 
 Second session on the same repo: `claude --worktree task-15`, then `/crew:next`. Claims are
 issue assignee + `in-progress` label + a claimed-by comment; `next` never offers a claimed task.
@@ -200,12 +200,12 @@ the case where the user must be free to discount the verdict, and the audit show
 ```
 plugins/crew/
   agents/           17 personas
-  skills/           init refine plan work review next status on off
+  skills/           init refine plan work review next status conform on off
   hooks/hooks.json  SessionStart (incl. compact) + UserPromptSubmit + SubagentStop
   scripts/          session-context.sh prompt-context.sh crew-mode.sh tracker.sh
                     subagent-model.sh common.sh
   scripts/tests/    subagent-model.test.sh tracker.test.sh review-contract.test.sh
-                    (run bare; exit 0 on pass)
+                    model-roster.test.sh  (run bare; exit 0 on pass)
   templates/        operating-model.md profile.md role-addendum.md
                     item-story.md item-task.md item-bug.md item-tech-debt.md
                     (read at runtime; a project replaces one kind by putting its own
