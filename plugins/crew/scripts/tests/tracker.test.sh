@@ -19,9 +19,9 @@ mkdir -p "$tmp/bin"
 cat > "$tmp/bin/gh" <<'STUB'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >> "${CREW_GH_LOG:-/dev/null}"
-prev=""; bf=""; lbl=""; num=""
+prev=""; bf=""; lbl=""; num=""; lim=""
 for a in "$@"; do
-  case "$prev" in --body-file) bf=$a ;; --label) lbl=$a ;; view) num=$a ;; esac
+  case "$prev" in --body-file) bf=$a ;; --label) lbl=$a ;; --limit) lim=$a ;; view) num=$a ;; esac
   prev=$a
 done
 case "$*" in
@@ -29,8 +29,13 @@ case "$*" in
     [ -n "$bf" ] && cat "$bf" >> "${CREW_GH_BODY:-/dev/null}"
     echo "https://github.com/o/r/issues/99" ;;
   *"issue list"*)
+    # `--limit N` is an exact cap in real `gh`: it stops at N and the remainder is never returned. The
+    # stub honours it, so a canned array longer than the limit comes back truncated — without that, no
+    # case can see the limit the caller passed and a fetch hard-coded to the wrong number stays green.
     f="${CREW_GH_LIST_DIR:-/nonexistent}/$lbl.json"
-    if [ -f "$f" ]; then cat "$f"; else echo '[]'; fi ;;
+    if [ -f "$f" ]; then
+      if [ -n "$lim" ]; then jq -c ".[0:$lim]" "$f"; else cat "$f"; fi
+    else echo '[]'; fi ;;
   *"issue view"*)
     case "$*" in
       *"--json body"*) echo "## Tasks" ;;                 # task create, appending the story checklist
@@ -363,8 +368,8 @@ n1="lint names each failing check per item and exits 1"
 list_json task "11:$good" "12:$badsize" "13:$nogoal"
 run "$p" -- lint --kind task
 if reported "$n1" 1 '#12' 'Size:' 'about 25 files' '#13' 'section "## Goal" is missing' '1 conforming, 2 not'; then
-  if grep -aqE 'issue (edit|comment|create)|label create' "$ghlog"; then
-    fail "$n1" "lint wrote to the board: $(grep -aE 'issue (edit|comment|create)|label create' "$ghlog" | head -1)"
+  if grep -aqE 'issue (edit|comment|create|close)|label create' "$ghlog"; then
+    fail "$n1" "lint wrote to the board: $(grep -aE 'issue (edit|comment|create|close)|label create' "$ghlog" | head -1)"
   else
     run "$p" -- lint --kind task --quiet
     if [ "$rc" -ne 1 ]; then fail "$n1" "--quiet: expected exit 1, got $rc; output: $out"
@@ -602,13 +607,19 @@ fi
 #     clean board prints. A fetch that comes back full is the only signal there is, so it is the one the
 #     report turns into words and a non-zero exit; a fetch under the cap read the kind whole and says
 #     nothing extra, which is the second arm here.
+#
+#     The first arm cans **four** items against a cap of 3 and asserts `3 conforming`, which is one
+#     assertion pinning the cap to both places it is used: the stub truncates to the limit it was handed,
+#     so a fetch that passes any other number returns a count the comparison then judges against the
+#     cap — four items read whole say `4 conforming` and exit 0, a cap of 500 on the fetch returns four
+#     and `4 -ge 3` still saturates but the count is wrong. Only the shipped pairing prints 3 and exits 2.
 n13="lint says the limit was hit instead of reporting a partial read as a whole board"
-list_json task "31:$good" "32:$good" "33:$good"
+list_json task "31:$good" "32:$good" "33:$good" "34:$good"
 lint_limit=3
 run "$p" -- lint --kind task
 if reported "$n13" 2 '3 conforming, 0 not' 'task' '3-item limit' 'not judged'; then
-  if grep -aqE 'issue (edit|comment|create)|label create' "$ghlog"; then
-    fail "$n13" "lint wrote to the board: $(grep -aE 'issue (edit|comment|create)|label create' "$ghlog" | head -1)"
+  if grep -aqE 'issue (edit|comment|create|close)|label create' "$ghlog"; then
+    fail "$n13" "lint wrote to the board: $(grep -aE 'issue (edit|comment|create|close)|label create' "$ghlog" | head -1)"
   else
     list_json task "31:$good" "32:$good"
     lint_limit=3

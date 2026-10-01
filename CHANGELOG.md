@@ -3,6 +3,43 @@
 Per release: what changed, what to do, and what happens to a project that changes nothing. Entries
 are appended, never rewritten — an entry describes the release it names, not the current tree.
 
+## Unreleased
+
+On `master` after the `0.6.0` tag and in no release yet. Both entries below are fixes to things
+`0.6.0` shipped or described; the release commit that gives this heading a version and a date is what
+bumps the manifests.
+
+### What changed
+
+- **`lint` says when a fetch filled its limit instead of printing a partial read as a clean board**
+  (#14). `0.6.0` fetched 500 items per kind and said nothing when a kind held more, so a board past
+  500 of one kind reported a count that read as complete over items it had never seen. The cap is now
+  2000 per kind — `--limit N` is an exact cap that `gh` pages the API to satisfy, so the cost is the
+  pages a board actually fills — and a fetch that comes back exactly full names the kind and the limit
+  in the closing line and exits 2, which is a partial read and not the verdict exit 1 gives. Read
+  further into the kind that filled with `lint --kind <kind>`, which gives each kind its own budget.
+  **This retracts `0.6.0`'s "Honest limits" note about the 500 cap**: a reader told there to treat
+  `lint`'s count as a lower bound until this was fixed no longer has to, because the count now says
+  for itself when it is one.
+- **The setup report and the three resolution lines no longer promise that a project's own item shape
+  wins whole** (#15). `0.6.0` described an override as deciding the whole shape. It decides the
+  required sections; the `Story: #<n>` first line and the `Blocked by:`, `Role:` and `Size:` lines are
+  checked against the adapter's own rules whatever the override contains, because the board's rollup
+  reads them. A project that believed the sentence and dropped `Size:` had every task creation refused
+  with nothing explaining why. The enforcement was right, so only the wording changed — in
+  `/crew:init`'s report and in `/crew:conform`, `/crew:plan` and `/crew:refine`.
+
+### What to do
+
+Nothing. Both are corrections: no profile key, no label, no command and no item body changes.
+
+### What happens if a project changes nothing
+
+`lint`'s exit code gains the value 2, so a project that put `lint` behind something reading its exit
+code should know 2 means "read incompletely" rather than "items failed". Nothing in this plugin does:
+the `gates:` line deliberately carries no `lint`, and every other consumer is prose a human or an
+agent reads.
+
 ## 0.6.0 — 2026-10-01
 
 Minor, not patch: the item templates and `/crew:conform` are new capability, the four profile keys

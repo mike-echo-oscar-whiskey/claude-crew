@@ -282,7 +282,8 @@ size check that silently skips on a branch it cannot map.
 ### D8 — `lint` compares the file to the tracker and the file wins; `sync` is the one repair
 
 `tracker.sh lint` keeps its shape (`[<n> | --all | --kind …] [--quiet]`, one list call per kind, exit 1
-when any item fails) and, for every item that has a file, adds three comparisons to the schema check:
+when any item fails and exit 2 when a kind's fetch came back filling its limit, which is a partial read
+and not a verdict) and, for every item that has a file, adds three comparisons to the schema check:
 `story` against `parent`, `blockedBy` against `blockedBy`, `role` and `kind` against the labels. A
 disagreement is one line —
 

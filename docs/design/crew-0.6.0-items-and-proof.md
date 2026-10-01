@@ -527,7 +527,9 @@ changes behaviour cannot be rolled back by a version pin.
   checked against its own headings; a project that removes `## Tasks` from its story override breaks
   its own rollup, and the template comment says so.
 - `lint` at `--limit 500` per kind: a board past 500 of one kind needs paging; the closing line must
-  say when the limit was hit rather than report a partial count as whole.
+  say when the limit was hit rather than report a partial count as whole. **Closed by #14**, after
+  this release shipped: the cap is 2000 per kind, a fetch that comes back full names the kind and the
+  limit in the closing line, and `lint` exits 2 for it — a partial read rather than a verdict.
 - The before-review count (D11, moment 3) is filed in task #8; the lead's procedure is detailed there.
 
 ## Corrections the tasks returned

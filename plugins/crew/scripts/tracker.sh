@@ -330,6 +330,10 @@ task_create() {
 # cap, and a full fetch is named in the closing line and exits 2 — a partial read, not a verdict.
 # CREW_LINT_LIMIT lowers the cap, which is how the witness reaches saturation in three items.
 LINT_LIMIT=${CREW_LINT_LIMIT:-2000}
+# Bounded like SIZE_CAP, and for the same reason: a non-numeric or absurdly long value makes the `-ge`
+# below exit 2 with "integer expected", which `if` reads as false — the saturation check would switch
+# itself off silently, which is the very failure this block exists to prevent.
+if ! [[ $LINT_LIMIT =~ ^[1-9][0-9]{0,5}$ ]]; then LINT_LIMIT=2000; fi
 
 LINT_QUIET=0; LINT_OK=0; LINT_BAD=0
 
