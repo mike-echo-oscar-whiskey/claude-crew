@@ -206,6 +206,7 @@ the case where the user must be free to discount the verdict, and the audit show
 
 ```
 plugins/crew/
+  .claude-plugin/   plugin.json — the manifest, name + version + description
   agents/           17 personas
   skills/           init refine plan work review next status conform on off
   hooks/hooks.json  SessionStart (incl. compact) + UserPromptSubmit + SubagentStop
@@ -217,8 +218,9 @@ plugins/crew/
                      complete copy at .claude/crew/items/<kind>.md)
 ```
 
-Everything above is what an install copies, and nothing else is. The repository holds one more
-directory the plugin deliberately does not ship:
+Those six directories are what an install copies, and nothing else is — an installed payload is
+exactly them, under `~/.claude/plugins/cache/<marketplace>/<plugin>/<version>/`. The repository holds
+one more directory the plugin deliberately does not ship:
 
 ```
 tests/              subagent-model.test.sh tracker.test.sh review-contract.test.sh
@@ -245,8 +247,8 @@ Little in the gate checks what this README and the two manifests claim. `claude 
 reads the manifests' structure, `jq empty` their syntax, `tests/model-roster.test.sh` holds
 the "Model per role" table's Default column against the persona frontmatter, and
 `tests/review-contract.test.sh` holds the three sentences above about the review ceiling and
-searches every Markdown file the plugin ships, this README among them, for one that would permit a
-second round. That is the whole of it. Nothing in it reaches what either file claims about the
+searches every Markdown file the plugin ships, plus this README beside the payload, for one that
+would permit a second round. That is the whole of it. Nothing in it reaches what either file claims about the
 plugin's own shape: the skill set, the counts in Layout and the `17` in both manifest descriptions
 are true by review only, which is why neither description enumerates the skills — an enumeration
 that goes stale is invisible to every check here, and one did.

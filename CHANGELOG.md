@@ -3,6 +3,94 @@
 Per release: what changed, what to do, and what happens to a project that changes nothing. Entries
 are appended, never rewritten — an entry describes the release it names, not the current tree.
 
+## 0.7.1 — 2026-10-01
+
+Patch, not minor: nothing is added, and no command, flag, profile key, label or item section is new.
+`next` parses a field it already parsed, `/crew:init` does two things it already said it did, and four
+witnesses leave a payload that never ran them. The one change that could be read as minor is that
+move, because it changes what an install *contains* — and an install did contain them:
+`~/.claude/plugins/cache/claude-crew/crew/0.5.9/scripts/tests/` holds all four, so the removal is
+visible to anyone who looks, and this entry says so rather than calling it invisible. It is a patch
+anyway, and for a reason stronger than size. That path carries the version in it, so no consumer ever
+had a stable path to those files; nothing in the payload — no skill, hook or script — named or invoked
+one; and two of the four could only exit 1 from inside an install, because they read a repository-root
+README that an install has no copy of. The one instruction that ever pointed at them was `0.7.0`'s
+Layout block, which listed them under `plugins/crew/` with "run bare" beside them — and following it
+was already a failure for half of them. Nothing a project could have depended on is gone, which is
+what decides the number.
+
+Two of the five commits behind this release reached no consumer at all. `438cb51` and `cefd090` change
+`.claude/crew/`, this repository's own crew configuration, which is not in the payload — so master
+moved by five and an install moves by three. Counting all five is how an empty release came within a
+command of being tagged earlier today; keeping the two counts apart is the subject of open item #33.
+
+### What changed
+
+- **`next` reads a task's story from the body's first line only, so a task that names its story twice
+  prints one row** (#30). The story number came out of an unanchored `grep -oE '^Story: #[0-9]+'`, so
+  every matching line in a body contributed one number. A task carrying `Story: #676` as its first
+  line and `Story: #676 · design …` on its third yielded two, handed the row's `printf` an argument
+  too many, and split the record across two lines — live on a 489-item board, where two tasks each
+  printed as two half-rows. The anchored first-line parse `lint` has had since it was written is now
+  the function `story_of_body`, and both call sites read through it: one regex in two places is how
+  this bug existed, and it is the third of that shape. A first line that is not a story reference
+  still contributes nothing and the row still prints, as `#?`.
+- **The four witnesses leave the payload, so no install carries a test that cannot pass** (#31).
+  `review-contract.test.sh` read `../../README.md` and `model-roster.test.sh` read
+  `$crew/../../README.md`. An install is `{agents,.claude-plugin,hooks,scripts,skills,templates}`
+  copied out of `plugins/crew/`, so a repository-root file is never two levels up and both exited 1
+  on a consumer's machine; they passed here only because a checkout happens to put a repo root in the
+  right place. Making the two skip on a missing file would have left the payload carrying tests that
+  pass by asserting nothing, so all four move to `tests/` at the repository root instead, where each
+  anchors on `$here/..` and derives `plugins/crew` from it. They are this repository's own gates:
+  they are on the `test:` and `gates:` lines of **this repository's** `.claude/crew/profile.md`, and
+  nothing is asked of your profile. `CHANGELOG.md` and the three `docs/design/` files naming the old
+  path keep it, because they record what was true when they were written.
+- **`/crew:init`'s two steps whose unhappy path was silence now have one, and say what they did**
+  (#32). Step 7 appended a "Crew" section to `CLAUDE.md` when that file lacked one, so a project with
+  no `CLAUDE.md` at all fell outside the condition and got no crew pointer without a word — in the
+  one procedure a project runs once and never revisits. It now writes the file, holding one line of
+  what the project is plus that same section, and reports creating rather than appending, so a user
+  who did not want one can delete it. Step 4 now creates the directory the profile's `designs:` line
+  names, because `/crew:plan` writes a design into it as its first act and a missing path surfaced
+  there as a failed write, a pipeline away from the one `mkdir` that prevents it. It is created
+  empty. Three values stay uncreated and are reported instead of attempted — a path outside the
+  project, an absolute path, and no value at all — each with the value read and the sentence that
+  `/crew:plan` will fail until the line is fixed.
+
+### What to do
+
+1. Install it: `claude plugin install crew@claude-crew`.
+2. **Nothing is required.** `0.7.0` needed `ensure-labels` run before `tech-debt create` had a label
+   to file under; nothing here gains a dependency on an action. The `next` fix is live the moment the
+   install lands, no witness was ever on a path you used, and the `init` text is read the next time
+   `/crew:init` runs.
+3. Two optional repairs, both only for a project that already ran `/crew:init` and neither caused by
+   this release — `0.7.1` is what makes them visible. If `.claude/crew/profile.md` names a `designs:`
+   directory that is not there, `/crew:plan` still fails on its first write: `/crew:init --refresh`
+   creates it, and so does one `mkdir`. If that project had no `CLAUDE.md` when it was set up, it
+   still has no crew pointer and every future session starts without knowing the crew exists;
+   `--refresh` writes the file. A project whose designs directory exists and whose `CLAUDE.md`
+   carries a "Crew" section has nothing to do.
+
+### What happens if a project changes nothing
+
+Three things, and nothing else:
+
+1. **`/crew:next` keeps printing a broken row** for any task whose body names its story on more than
+   one line — two half-rows instead of one record, with the second carrying the overflow argument.
+   Nothing else in the pipeline misreads it: `lint` always had the anchored parse, and a claim, a
+   status rollup and a plan all read the first line.
+2. **`/crew:init` keeps both silences.** A project set up without a `CLAUDE.md` is already past that
+   step and cannot get the pointer back from an upgrade, and a missing `designs:` directory still
+   surfaces inside `/crew:plan` as a failed write rather than at setup.
+3. **Four files disappear from the installed payload** at `scripts/tests/`, and nothing else in it
+   moves. No skill, hook or script referenced them, the path they lived on was stamped with the
+   plugin version, and the two that read the repository README could only fail there. Everything
+   that existed under `0.7.0` keeps its flags, its output and its exit codes, `lint`'s 2 among them.
+
+There is no migration tooling, no version negotiation and no compatibility matrix.
+
 ## 0.7.0 — 2026-10-01
 
 Minor, not patch: `tracker.sh bug create` and `tracker.sh tech-debt create` are commands that did not
