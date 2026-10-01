@@ -3,6 +3,86 @@
 Per release: what changed, what to do, and what happens to a project that changes nothing. Entries
 are appended, never rewritten — an entry describes the release it names, not the current tree.
 
+## 0.7.2 — 2026-10-01
+
+**The first release this project owed rather than chose.** Six releases in, every number before this
+one came from the lead's judgement; three of the five were judgement alone, two of those stranded
+shipped work past a tag and one was nearly cut for commits no consumer could receive. `2e39c7f` wrote
+the sentence that decides it, and the sentence then decided its own release: it changed
+`plugins/crew/templates/profile.md`, that directory is the payload an install copies, so a release is
+owed. Nothing here was weighed.
+
+Patch, not minor. Nothing is added that a project can run: no command, no flag, no profile key, no
+label, no item section, no hook, and no existing behaviour changes its output or its exit code. The
+one case for a minor is real and worth stating — a project running `/crew:init` after this install
+renders a definition-of-done item it would not have rendered before — and it does not survive the
+question of what capability means. A capability is something a consumer can now do that it could not
+do before: invoke, pass, file under, have fired. This bullet is something the crew is now *measured
+against*, and any project could already have written it into its own profile by hand, because the
+template's Definition of done is a list a project edits rather than a surface it calls. **Added
+guidance is not added capability** — and this repository has twice decided in that direction already:
+`0.7.0` was a minor because two tracker commands and two labels were new, and said so while expressly
+setting aside "a rule the lead reads, a template sentence and thirty-four witness cases" as not what
+decided it, which is the whole of this release; `0.6.1` was a patch by the same test. Calling this one
+a minor would make every future wording improvement to a shipped template a minor, and the number
+would stop carrying information.
+
+Master moved by one commit and so did the payload — but not by the same amount of file. Of the three
+files `2e39c7f` touched, one is shipped. `.claude/crew/profile.md` is this repository's own crew
+configuration and `tests/review-contract.test.sh` is its own gate; neither is in an install, and by
+the rule this release carries, neither would have earned one.
+
+### What changed
+
+- **The shipped profile template's definition of done says when a release is owed** (#33). Before
+  this, `templates/profile.md` said nothing about versions, releases or tags: a project rendering its
+  profile got "gates green, exit code quoted", the RED-before-GREEN line and one project-specific
+  slot, and no statement of when a version has to move. The new bullet states the rule generally,
+  because a consuming project may ship a library, a container image, a set of paths or nothing at all
+  — a release is owed when what this project ships, which the rendered line names in place of the
+  placeholder `<the published package, image, paths, or "nothing">`, has changed since the last
+  released version, and the version is then bumped identically everywhere it is declared; a change
+  confined to what the repository keeps for itself (its own agent rules and profile, developer
+  scripts, tests, CI) earns none; a project that ships nothing never owes one; and cutting the release
+  is the last step of finishing that batch rather than something remembered afterwards, because
+  skipping it strands shipped work behind the last version and cutting one for repo-local changes
+  claims a move no consumer can receive. Three assertions in this repository's
+  `tests/review-contract.test.sh` hold those three sentences, so the bullet cannot later be softened
+  back into a judgement call — they are this repository's gates, and nothing is asked of your
+  project's tests.
+
+### What to do
+
+1. Install it: `claude plugin install crew@claude-crew`.
+2. **A project set up before this release does not get the bullet, and no upgrade will deliver it.**
+   A rendered `.claude/crew/profile.md` is the project's own file: `/crew:init` writes it once and the
+   project hand-edits it afterwards. `--refresh` "keeps the user's hand edits and only updates scanned
+   lines" (step 8 of the `init` skill), and the Definition of done is not a scanned line — step 1
+   scans the repository for languages, commands, folders and the tracker, while the
+   definition-of-done items are *asked* in step 3 and written once in step 4. Nothing in the plugin
+   re-renders that section, and `/crew:status`'s only rendered-versus-installed check is a string
+   compare of the `.github/ISSUE_TEMPLATE/` headers, which says nothing about the profile. So a
+   project that wants the rule adds it itself: paste the bullet into its profile's Definition of done
+   and replace the placeholder with what that project actually ships, or `nothing` if it ships
+   nothing. One edit, no tooling.
+3. **A project set up after this install gets it from `/crew:init`**, with the placeholder filled
+   during setup like every other value, and has nothing further to do.
+
+### What happens if a project changes nothing
+
+Two things, and nothing else:
+
+1. **Its definition of done keeps saying nothing about releases**, and its lead keeps deciding when a
+   version moves on judgement — which is exactly what produced the three incidents this bullet
+   exists to prevent, in this repository, within one day. Nothing refuses a PR over it: the item is
+   guidance the lead walks, not a check a gate runs.
+2. **Everything else is identical.** No command, flag, output or exit code changes; the installed
+   payload gains and loses nothing but the one bullet in one template.
+
+This release delivers a sentence to projects not yet set up. For every project already running the
+crew it is a no-op that the lead has to act on by hand, and this entry says so rather than letting
+"install it" imply otherwise.
+
 ## 0.7.1 — 2026-10-01
 
 Patch, not minor: nothing is added, and no command, flag, profile key, label or item section is new.
