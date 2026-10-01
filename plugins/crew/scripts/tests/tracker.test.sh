@@ -159,21 +159,29 @@ commentsfile="$tmp/comments.txt"; : > "$commentsfile"  # `show`'s canned comment
 # again for the three fetches `next` and `status` make.
 show_view="" show_comments="" lane_labels="" lint_limit="" board_limit=""
 
-ghlog="" ghbody="" out="" rc=0
-# run <project-dir> -- <tracker args...>
+ghlog="" ghbody="" out="" errfile="" rc=0
+# invoke <project-dir> -- <tracker args...> -> one adapter run, each stream on the stream it was written to
 # The adapter runs *in* the project directory, as a real invocation does: a `generated:` glob has to be
 # matched as a pattern, never expanded against whatever that directory happens to hold.
-run() {
+invoke() {
   local dir=$1; shift; [ "${1:-}" = "--" ] && shift
-  ghlog="$tmp/gh.log"; ghbody="$tmp/gh.body"; : > "$ghlog"; : > "$ghbody"
-  out=$(cd "$dir" && CREW_PROJECT_DIR="$dir" CREW_GH_LOG="$ghlog" CREW_GH_BODY="$ghbody" \
-        CREW_GH_LIST_DIR="$lists" CREW_GH_CLAIM="$claimjson" \
-        CREW_GH_VIEW="$show_view" CREW_GH_COMMENTS="$show_comments" CREW_GH_LANES="$lane_labels" \
-        CREW_LINT_LIMIT="$lint_limit" CREW_BOARD_LIMIT="$board_limit" \
-        PATH="$tmp/bin:$PATH" bash "$sut" "$@" 2>&1)
-  rc=$?
-  show_view="" show_comments="" lane_labels="" lint_limit="" board_limit=""
+  (cd "$dir" && CREW_PROJECT_DIR="$dir" CREW_GH_LOG="$ghlog" CREW_GH_BODY="$ghbody" \
+   CREW_GH_LIST_DIR="$lists" CREW_GH_CLAIM="$claimjson" \
+   CREW_GH_VIEW="$show_view" CREW_GH_COMMENTS="$show_comments" CREW_GH_LANES="$lane_labels" \
+   CREW_LINT_LIMIT="$lint_limit" CREW_BOARD_LIMIT="$board_limit" \
+   PATH="$tmp/bin:$PATH" bash "$sut" "$@")
 }
+arm() { ghlog="$tmp/gh.log"; ghbody="$tmp/gh.body"; : > "$ghlog"; : > "$ghbody"; }
+disarm() { show_view="" show_comments="" lane_labels="" lint_limit="" board_limit=""; }
+
+# run <project-dir> -- <tracker args...> -> `out` holds both streams, as a terminal interleaves them
+run() { arm; out=$(invoke "$@" 2>&1); rc=$?; disarm; }
+
+# run_split <project-dir> -- <tracker args...> -> `out` holds stdout alone, `errfile` the file with stderr
+# alone. For a case whose subject *is* the channel: under `run` a line moved from stderr to the stdout a
+# skill parses as a table reads identically, so no assertion on `out` can see it move. Only the two cases
+# that assert a channel use this; every other case wants what a terminal shows, which is `run`.
+run_split() { arm; errfile="$tmp/stderr.txt"; out=$(invoke "$@" 2>"$errfile"); rc=$?; disarm; }
 
 # refused <name> <expected substring>...  -> exit 1, every substring present, no gh call at all
 refused() {
@@ -701,6 +709,80 @@ if reported "$n16" 0 '#1' '#2' '#3' 'open-story fetch filled its 3-item limit' '
   elif grep -aqE 'issue (edit|comment|create|close)|label create' "$ghlog"; then
     fail "$n16" "status wrote to the board: $(grep -aE 'issue (edit|comment|create|close)|label create' "$ghlog" | head -1)"
   else pass "$n16"; fi
+fi
+
+# 23. #16 — the one property the whole design rests on, and the one no case above can see: `run` captures
+#     `2>&1`, so a warning printed to stdout reads there exactly as a warning printed to stderr does.
+#     Both skills parse stdout — `/crew:next --auto` starts work on the first row of the table, and
+#     `/crew:status` presents the table unchanged — so a warning on stdout is read as a row, which is why
+#     the channel is the fix and not an incidental of it. `run_split` keeps the two apart here: stdout must
+#     hold the rows and nothing else, stderr must hold the warning. `status` is asserted as well as `next`
+#     because two of the three warnings are its, and the rows it hands the skill are the whole output.
+n17="the saturation warning goes to stderr and leaves stdout holding rows alone"
+list_json task "71:$good" "72:$good" "73:$good" "74:$good"
+board_limit=3
+run_split "$p" -- next
+err=$(cat "$errfile")
+if [ "$rc" -ne 0 ]; then fail "$n17" "expected exit 0 from next, got $rc; stdout: $out"
+elif printf '%s\n' "$out" | grep -q 'filled its'; then
+  fail "$n17" "the warning reached the stdout --auto reads as its first claimable row: $out"
+elif ! printf '%s\n' "$err" | grep -q 'open-task fetch filled its 3-item limit'; then
+  fail "$n17" "stderr never carried the warning, so the fetch filled in silence: ${err:-empty}"
+elif ! printf '%s\n' "$out" | grep -q '#71'; then
+  fail "$n17" "stdout lost the rows the warning only qualifies: ${out:-empty}"
+else
+  list_json task "81:$good" "82:$good" "83:$good" "84:$good"
+  list_json story "1:$good" "2:$good" "3:$good" "4:$good"
+  board_limit=3
+  run_split "$p" -- status
+  err=$(cat "$errfile")
+  if [ "$rc" -ne 0 ]; then fail "$n17" "expected exit 0 from status, got $rc; stdout: $out"
+  elif printf '%s\n' "$out" | grep -q 'filled its'; then
+    fail "$n17" "a status warning reached the stdout the skill presents unchanged: $out"
+  elif ! printf '%s\n' "$err" | grep -q 'task-rollup fetch filled its 3-item limit'; then
+    fail "$n17" "stderr never carried the rollup warning: ${err:-empty}"
+  elif ! printf '%s\n' "$err" | grep -q 'open-story fetch filled its 3-item limit'; then
+    fail "$n17" "stderr never carried the story warning: ${err:-empty}"
+  else pass "$n17"; fi
+fi
+
+# 24. #16 and #14 — the numeric guard under both caps, which nothing else observes because its failure mode
+#     is the silence of a healthy board. A non-numeric limit reaches `[ 4 -ge abc ]`, which exits 2 with
+#     "integer expression expected": `|| return 0` in `board_saturated` and `if` in `lint` both read that
+#     as "not saturated", so the saturation check switches itself off, and the fetch asks `gh` for
+#     `--limit abc` as well. What the fallback is therefore asserted by is the number that reached `gh` and
+#     a stderr with nothing on it — a complete read, judged against a cap that is still 2000.
+#
+#     One case, both guards: `BOARD_LIMIT` through `next` and `LINT_LIMIT` through `lint`. The two are
+#     separate copies of the same three lines, each read by only its own commands, so a case touching one
+#     command would leave the other copy exactly as unobserved as it was.
+n18="a non-numeric fetch limit falls back to the shipped 2000 instead of switching the check off"
+list_json task "91:$good" "92:$good" "93:$good" "94:$good"
+board_limit=abc
+run_split "$p" -- next
+err=$(cat "$errfile")
+if ! grep -aq -e '--limit 2000' "$ghlog"; then
+  fail "$n18" "the open-task fetch passed the unusable limit straight to gh: $(head -1 "$ghlog")"
+elif [ "$rc" -ne 0 ]; then fail "$n18" "expected exit 0 from next, got $rc; stdout: ${out:-empty}"
+elif [ -n "$err" ]; then
+  fail "$n18" "the comparison ran against a non-number: $err"
+elif ! printf '%s\n' "$out" | grep -q '#94'; then
+  fail "$n18" "the default cap did not govern the fetch, so the board came back short: ${out:-empty}"
+elif printf '%s\n' "$out" | grep -q 'filled its'; then
+  fail "$n18" "four items under a cap of 2000 is not a filled fetch: $out"
+else
+  list_json task "91:$good" "92:$good" "93:$good"
+  lint_limit=abc
+  run_split "$p" -- lint --kind task
+  err=$(cat "$errfile")
+  if ! grep -aq -e '--limit 2000' "$ghlog"; then
+    fail "$n18" "the lint fetch passed the unusable limit straight to gh: $(head -1 "$ghlog")"
+  elif [ "$rc" -ne 0 ]; then fail "$n18" "expected exit 0 from lint, got $rc; stdout: ${out:-empty}"
+  elif [ -n "$err" ]; then
+    fail "$n18" "the lint comparison ran against a non-number: $err"
+  elif [ "$out" != "3 conforming, 0 not" ]; then
+    fail "$n18" "a complete read under the default cap must print the count alone, got: ${out:-empty}"
+  else pass "$n18"; fi
 fi
 
 if [ "$fails" -eq 0 ]; then echo "PASS"; exit 0; fi
