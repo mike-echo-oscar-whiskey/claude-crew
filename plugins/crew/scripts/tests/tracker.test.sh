@@ -34,6 +34,7 @@ case "$*" in
   *"issue view"*)
     case "$*" in
       *"--json body"*) echo "## Tasks" ;;                 # task create, appending the story checklist
+      *"--json labels"*) cat "${CREW_GH_LANES:-/dev/null}" ;;  # release --to done's lane read, -q applied
       *assignees*) cat "${CREW_GH_CLAIM:-/dev/null}" ;;   # claim's one read, with -q already applied
       *--comments*) cat "${CREW_GH_COMMENTS:-/dev/null}" ;;   # show's second read: the comment stream alone
       *) if [ -s "${CREW_GH_VIEW:-/dev/null}" ]; then      # show's first read: the item as a human reads it
@@ -146,8 +147,9 @@ viewfile="$tmp/view.txt"; : > "$viewfile"              # `show`'s canned item vi
 commentsfile="$tmp/comments.txt"; : > "$commentsfile"  # `show`'s canned comment stream
 # A case that wants `show`'s two reads canned points these at those files immediately before its `run`.
 # `run` hands them to the stub and then clears them, so a canned view reaches exactly the one invocation
-# that asked for it: a case appended after this file's last one cannot inherit it by accident.
-show_view="" show_comments=""
+# that asked for it: a case appended after this file's last one cannot inherit it by accident. `lane_labels`
+# is the same mechanism for the one lane read `release --to done` makes.
+show_view="" show_comments="" lane_labels=""
 
 ghlog="" ghbody="" out="" rc=0
 # run <project-dir> -- <tracker args...>
@@ -158,10 +160,10 @@ run() {
   ghlog="$tmp/gh.log"; ghbody="$tmp/gh.body"; : > "$ghlog"; : > "$ghbody"
   out=$(cd "$dir" && CREW_PROJECT_DIR="$dir" CREW_GH_LOG="$ghlog" CREW_GH_BODY="$ghbody" \
         CREW_GH_LIST_DIR="$lists" CREW_GH_CLAIM="$claimjson" \
-        CREW_GH_VIEW="$show_view" CREW_GH_COMMENTS="$show_comments" \
+        CREW_GH_VIEW="$show_view" CREW_GH_COMMENTS="$show_comments" CREW_GH_LANES="$lane_labels" \
         PATH="$tmp/bin:$PATH" bash "$sut" "$@" 2>&1)
   rc=$?
-  show_view="" show_comments=""
+  show_view="" show_comments="" lane_labels=""
 }
 
 # refused <name> <expected substring>...  -> exit 1, every substring present, no gh call at all
@@ -551,6 +553,44 @@ if reported "$n10" 0 'title:' 'OPEN' 'needs-refinement' 'Story: #7' '## TL;DR' '
   elif grep -aqE 'issue (edit|comment|create)' "$ghlog"; then
     fail "$n10" "show wrote to the board: $(grep -aE 'issue (edit|comment|create)' "$ghlog" | head -1)"
   else pass "$n10"; fi
+fi
+
+# 17. The transition the board had no word for. `claim` adds `in-progress`, nothing took it off at the end,
+#     and five closed items carried it at once while `status` counted them as work in flight. `--to done`
+#     removes every lane label the item carries and closes it in one act, and it KEEPS the assignee: who
+#     finished the work is the one thing a closed item should still record. Dropping any one label from the
+#     removal, or taking the assignee off, is the accident this case exists to catch.
+n11="release --to done removes every lane label, closes the item and keeps the assignee"
+lane_labels="$tmp/lanes-all.json"
+jq -n '["task","in-progress","in-review","blocked","role:agentic-ai-engineer"]' > "$lane_labels"
+run "$p" -- release 13 --to done
+if reported "$n11" 0 'released #13 -> done'; then
+  edit=$(grep -a -m1 'issue edit' "$ghlog" || true)
+  missing=""
+  for l in in-progress in-review blocked; do
+    case "$edit" in *"--remove-label $l"*) ;; *) missing="$missing $l" ;; esac
+  done
+  if [ -n "$missing" ]; then fail "$n11" "these lane labels survived the transition:$missing (edit: ${edit:-none})"
+  elif ! grep -aq 'issue close 13' "$ghlog"; then fail "$n11" "the item was never closed: $(cat "$ghlog")"
+  elif grep -aq -- '--remove-assignee' "$ghlog"; then
+    fail "$n11" "the assignee must stay as the record of who did the work: $(grep -a -- '--remove-assignee' "$ghlog" | head -1)"
+  else pass "$n11"; fi
+fi
+
+# 18. The ordinary finish: an item in review carries one lane label. The transition removes that one and
+#     names neither of the other two, because `gh issue edit --remove-label` fails whole on a label the
+#     item does not carry — the same reason `claim` keeps a fallback — and a failed edit would leave a
+#     closed item wearing its lane label, which is the bug all over again.
+n12="release --to done removes only the lane labels the item carries"
+lane_labels="$tmp/lanes-review.json"; jq -n '["task","in-review"]' > "$lane_labels"
+run "$p" -- release 13 --to done
+if reported "$n12" 0 'released #13 -> done'; then
+  edit=$(grep -a -m1 'issue edit' "$ghlog" || true)
+  if ! grep -aq 'issue close 13' "$ghlog"; then fail "$n12" "the item was never closed: $(cat "$ghlog")"
+  elif ! grep -aq -- '--remove-label in-review' <<<"$edit"; then fail "$n12" "in-review survived: ${edit:-none}"
+  elif grep -aqE -- '--remove-label (in-progress|blocked)' <<<"$edit"; then
+    fail "$n12" "the edit names a label the item does not carry, and GitHub fails it whole: $edit"
+  else pass "$n12"; fi
 fi
 
 if [ "$fails" -eq 0 ]; then echo "PASS"; exit 0; fi

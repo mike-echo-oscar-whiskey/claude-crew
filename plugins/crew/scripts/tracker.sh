@@ -7,7 +7,7 @@
 #   tracker.sh task  create --story N --title T --role R --body-file F [--blocked-by "12,13"]
 #   tracker.sh claim N                (assign @me, label in-progress, comment claimed-by; warns when the body is off-shape)
 #   tracker.sh lint [<n> | --all | --kind story|task|bug|tech-debt] [--quiet]   (read-only conformance report)
-#   tracker.sh release N --to in-review|blocked|open
+#   tracker.sh release N --to in-review|blocked|open|done   (done: lane labels off, item closed, assignee kept)
 #   tracker.sh next                   (claimable tasks: open, unassigned, not in-progress/in-review/blocked, blockers closed)
 #   tracker.sh status                 (stories with task progress)
 #   tracker.sh show N                 (issue + comments)
@@ -429,7 +429,20 @@ release() {
     in-review) "${GH[@]}" issue edit "$n" --remove-label in-progress --add-label in-review >/dev/null ;;
     blocked)   "${GH[@]}" issue edit "$n" --remove-label in-progress --add-label blocked >/dev/null ;;
     open)      "${GH[@]}" issue edit "$n" --remove-label in-progress --remove-assignee @me >/dev/null ;;
-    *) echo "release needs --to in-review|blocked|open" >&2; exit 1 ;;
+    # `done` is the transition that means finished, and it is one act: every lane label off, the item
+    # closed, the assignee kept — who did the work is the one thing a closed item should still record.
+    # The labels it carries are read first because `gh issue edit --remove-label` fails WHOLE on a label
+    # the item does not have (the same reason `claim` keeps a fallback), and a failed edit would leave a
+    # closed item wearing `in-progress`, which is the state this transition exists to retire.
+    done)
+      local lanes; lanes=$("${GH[@]}" issue view "$n" --json labels -q '[.labels[].name]')
+      local -a off=(); local l
+      for l in in-progress in-review blocked; do
+        if jq -e --arg l "$l" 'index($l)' <<<"$lanes" >/dev/null; then off+=(--remove-label "$l"); fi
+      done
+      if [ ${#off[@]} -gt 0 ]; then "${GH[@]}" issue edit "$n" "${off[@]}" >/dev/null; fi
+      "${GH[@]}" issue close "$n" >/dev/null ;;
+    *) echo "release needs --to in-review|blocked|open|done" >&2; exit 1 ;;
   esac
   echo "released #$n -> $to"
 }
