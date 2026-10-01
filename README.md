@@ -30,11 +30,16 @@ Development from a checkout: `claude --plugin-dir ./plugins/crew`.
 | Crew review of a PR | `/crew:review 40` |
 | Pick the next claimable task | `/crew:next` |
 | Board, with how many items still match the item shape | `/crew:status` (the count comes from `scripts/tracker.sh lint --all --quiet`; `lint --all` is the per-item report behind it) |
+| Bring items filed before the item shape over to it | `/crew:conform [<n> \| --all]` (drafts the countable fixes with no role, briefs the owning role for new text, and shows you a diff per item before anything is written) |
 | Whole session as delivery lead | `/crew:on` … `/crew:off` (or `mode: always` in the profile) |
 
 `scripts/tracker.sh lint [<n> | --all | --kind story|task|bug|tech-debt] [--quiet]` is that report:
 it only reads the board, prints one line per item whose body no longer matches its kind's template
 naming each failing check, and exits 1 when any item fails.
+
+Rollout policy: an item conforms to the shape that shipped when it was filed, the crew refuses to
+create one that does not, and older items are brought over in one `/crew:conform` pass — never
+silently, never as a background sweep, and never by refusing a claim.
 
 Second session on the same repo: `claude --worktree task-15`, then `/crew:next`. Claims are
 issue assignee + `in-progress` label + a claimed-by comment; `next` never offers a claimed task.
