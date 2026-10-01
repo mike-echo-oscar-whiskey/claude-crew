@@ -1,8 +1,8 @@
 # ♻️ refactor(crew): the machine facts of an item leave its body for a data file in the repository, and the body keeps only what a person reads
 
-Design for release 0.7.0. Architect, 2026-09-30. Status: **proposed** — design only; the task list is
-not part of this document. Sections are numbered §1–§9 so tasks can cite them; the ten questions the
-brief put are mapped to decisions at the end.
+Architect, 2026-09-30. Status: **proposed** — design only; no release is reserved for it, and the
+task list is not part of this document. Sections are numbered §1–§9 so tasks can cite them; the ten
+questions the brief put are mapped to decisions at the end.
 
 ## Problem
 
@@ -61,7 +61,7 @@ points; `tracker.sh` stays the adapter boundary and the schema encodes nothing G
 
 Today's task body carries, in prose clothing: `Story: #n`, `Blocked by:`, `Role:` with its
 `design:` pointer, `Size: <H> … <T> …`, `Split line:`/`Exception:`, a `## Proves` list of criterion
-references and a `## Files` bullet list. From 0.7.0 the data file carries the story, the role, the
+references and a `## Files` bullet list. The data file instead carries the story, the role, the
 blockers, the design pointer, the criteria proved, the file list and the exception licence. The body
 keeps `## TL;DR`, `## In one paragraph`, `## Goal`, `## Tests (RED first)` and `## Done when`, and
 gains one prose section, `## Split line`, because the seam a task is cut at is a sentence about the
@@ -184,8 +184,9 @@ number,parent,…`, one call as today), `next()` reads blockers from `blockedBy`
 returns each blocker's number; state is one `issue view` per blocker as now), and neither opens a file.
 `work` step 1 opens the file — and stops when it is not on the branch's base: "no
 `.claude/crew/items/<n>.json` on `<default-branch>`: the plan's change is not merged, or this item
-predates 0.7.0 — `/crew:conform` brings it over". A task is claimable once its plan has landed, which
-is what the consuming project already does by practice (design PR #655 merged before #656 started).
+predates the data file — `/crew:conform` brings it over". A task is claimable once its plan has
+landed, which is what the consuming project already does by practice (design PR #655 merged before
+#656 started).
 
 *Forecloses:* a board that depends on a checkout; a typed field written by anything but the adapter;
 a schema field that names a backend.
@@ -229,9 +230,10 @@ writes the **whole body back** (`tracker.sh:312-315`). That is a body rewrite of
 may be editing on the tracker at that moment, and the one place in the adapter where the prose-clobber
 this design exists to end is built in. With `parent` set (D4), GitHub renders the sub-issue list and
 its progress on the story itself, so the checklist is a third copy of a fact the tracker now holds
-twice. From 0.7.0 the github adapter does not write it. `## Tasks` stays the last section of the story
-template — a project override may want it, and the on-board validator already accepts it empty
-(`check_sections` exempt heading) — and the template comment says the adapter no longer fills it.
+twice. Under this design the github adapter does not write it. `## Tasks` stays the last section of
+the story template — a project override may want it, and the on-board validator already accepts it
+empty (`check_sections` exempt heading) — and the template comment says the adapter no longer fills
+it.
 
 *Forecloses:* an adapter write to a story body after creation; a template contract that names the
 checklist as the rollup.
@@ -308,7 +310,7 @@ as not conforming, and the line names the repair.
 *Forecloses:* a second direction (`sync --from tracker`); a `lint` that edits; a verdict that depends
 on timestamps.
 
-### D9 — What `lint` judges in a body from 0.7.0, and what it stops judging
+### D9 — What `lint` judges in a body under this design, and what it stops judging
 
 For a task or bug **with** a file, the body checks are: every `##` heading of the resolved template
 present and non-empty; no surviving placeholder; `## Tests (RED first)` numbered count T at most five,
@@ -358,7 +360,7 @@ in a patch release.
 
 ### D12 — A board that never adopts keeps exactly what it has, and one minor release later the prose readers go
 
-On 0.7.0 with no file in the repository:
+Under this design, with no file in the repository:
 
 | Behaviour | Still works | Degrades |
 |---|---|---|
@@ -369,16 +371,17 @@ On 0.7.0 with no file in the repository:
 | `tracker.sh size`, the diff check, `sync` | | not available for an item without a file — `size` says so and exits 1 |
 | `work` step 1 | | stops on an item without a file and names `/crew:conform` |
 
-The prose fallbacks in `status` and `next` and the `legacy:` validator are kept for 0.7.x and removed
-in 0.8.0, which is at least one release after `/crew:conform` (#7) can bring a board over in one pass.
-From 0.8.0 an item with no file is not invisible: `status` lists it under an `unlinked` heading of its
-own and `next` prints it with `story ?` and no blocker check — loud, not absent. The consuming
+The prose fallbacks in `status` and `next` and the `legacy:` validator are kept for one minor release
+— the one that delivers this design — and removed in the next, which is at least one release after
+`/crew:conform` (#7) can bring a board over in one pass. Once they are gone an item with no file is
+not invisible: `status` lists it under an `unlinked` heading of its own and `next` prints it with
+`story ?` and no blocker check — loud, not absent. The consuming
 project's 209 tasks and this repository's own ten are brought over by that one pass; #7 gains one
 step, "write the data file from the body's header lines and `## Files`, and set the typed fields", and
 the pass is the only time a program writes a file from prose.
 
-*Forecloses:* a fallback that outlives 0.7.x; an unfiled item that is silently absent in 0.8.0; a
-migration by a script that is not shown to the user.
+*Forecloses:* a fallback that outlives that one minor release; an unfiled item that is silently
+absent once they are gone; a migration by a script that is not shown to the user.
 
 ## §7 — The size contract's three moments, re-stated
 
@@ -405,16 +408,16 @@ search that returns nothing afterwards, as `agents/architect.md` requires.
 
 ## §8 — What is superseded
 
-| 0.6.0 | 0.7.0 |
+| 0.6.0 | Under this design |
 |---|---|
 | D2's two load-bearing lines | one: the story's `## Tasks` is last; the task's first line is retired (D1, D10) |
-| D4 first-line contract | retired for items with a file; `legacy:` for 0.7.x; gone in 0.8.0 (D12) |
+| D4 first-line contract | retired for items with a file; `legacy:` for one minor release; gone in the next (D12) |
 | D5 task checks — `Size:` regex, bullets = H, `## Proves` grep, header presence | retired for items with a file; the file's `jq` validator replaces them (D3, D9) |
 | D9 `Size:` line and `Exception:` line | computed H/G; `exception` key (D1, D13) |
 | D11's foreclosure of a file count in a project gate | superseded: the valve is in data (D7) |
 | `task_create` appending the story checklist | retired on github (D6) |
 | `--story --role --blocked-by` on `task create` | retired; `--data-file` (D5) |
-| `status`/`next` prose matches | fallbacks for 0.7.x only (D12) |
+| `status`/`next` prose matches | fallbacks for one minor release only (D12) |
 
 ## §9 — What this design does not improve
 
@@ -430,7 +433,7 @@ hunk a reviewer reads.
 
 - A computed Proof map: with `proves` in data, the story's Task column is one `jq` walk over
   `.claude/crew/items/`, and a lint line for a row that disagrees with the files is cheap. Not in
-  0.7.0: the story body is untouched by this design, and the map's other two columns are prose by
+  this design: the story body is untouched by it, and the map's other two columns are prose by
   D20/D21. It is the next item, and this design makes it a computation rather than a design.
 - A file for stories and tech-debt items (D1).
 - A comment on the issue carrying a link to the file: the number is the path.
@@ -463,7 +466,7 @@ hunk a reviewer reads.
 | 4 what `lint` becomes | D8, D9: file schema + cross-check + the body's structural checks; `legacy:` for the rest |
 | 5 a pointer in the body | D10: none |
 | 6 schema versioning | D11: integer, newer refused, older read and migrated by `/crew:conform` |
-| 7 a repository that never adopts | D12: the table; fallbacks for 0.7.x, loud `unlinked` from 0.8.0 |
+| 7 a repository that never adopts | D12: the table; fallbacks for one minor release, loud `unlinked` after it |
 | 8 the three moments | D13: create and before-review are computations; claim unchanged |
 | 9 what is superseded | §8 |
 | 10 what does not improve | §9 |
