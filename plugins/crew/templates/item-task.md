@@ -3,7 +3,8 @@
      The "Story:" line MUST be the literal first line of the body, and the adapter writes it:
      tracker.sh rolls tasks up under their story with startswith("Story: #<n>") and greps
      ^Story: # for the claimable list. A task filed by hand, from a web-UI template, is
-     invisible to the board without it. -->
+     invisible to the board without it. "Blocked by:", "Role:" and "Size:" must be present too,
+     and an override changes neither requirement: it decides the sections, not these four lines. -->
 
 Story: <profile:tracker-sigil><n>
 Blocked by: <refs, or "none">

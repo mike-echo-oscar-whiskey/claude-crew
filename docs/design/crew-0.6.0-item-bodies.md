@@ -193,7 +193,7 @@ rewrite either.
   `## Proof map` on #716 and #676, bodies otherwise untouched. That is a vonk decision executed in
   vonk, not something the plugin does to a project.
 
-`plugin.json` goes to **0.6.0**: the templates are new capability, the three profile keys are
+`plugin.json` goes to **0.6.0**: the templates are new capability, the four profile keys are
 additive with fallbacks, and the only behaviour change to an existing project is `tracker.sh`
 refusing an unsized task — worth a minor bump and one line in the README.
 
