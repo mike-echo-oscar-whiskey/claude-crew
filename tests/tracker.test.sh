@@ -1062,5 +1062,41 @@ else
   else pass "$n_story"; fi
 fi
 
+# 33. #41 — the stub that names an owner. `item-bug.md` writes its role inside a code span, and the scan
+#     strips code spans before it looks for stubs, so the one stub a reader uses to find who filed the bug
+#     was the one stub that could never be reported — while `plain_create`'s comment and the 0.7.0
+#     changelog both said it was. Case 31 cannot see this: the stub it leaves is ordinary prose, outside
+#     any span, so it survives the strip the role does not. Only the role is left unfilled here, design
+#     and found filled, so the body is conforming on every other check and the refusal has one cause.
+nrole="bug create refuses a body whose role line is still the template's stub"
+rph=$(bug_body C9)
+sed -i '1s|`agentic-ai-engineer`|`<crew role>`|' "$rph"
+run "$p" -- bug create --title 'the probe' --body-file "$rph"
+refused "$nrole" 'refused: unfilled template placeholder — <crew role>'
+
+# 34. #41 — the other half of the same line, and the reason the fix is not "stop stripping code spans":
+#     a role that IS filled is written inside backticks by every template and every body on this board, so
+#     a scan that read every backticked `<…>` — or every span — as a stub would refuse every conforming
+#     bug. The body also carries a genuine span with angle brackets in its prose, which is what the strip
+#     is for; both must pass in one body, because a fix that kept the role and dropped the span protection
+#     leaves case 33 green.
+nspan="bug create accepts a filled role written as a code span"
+sph=$(bug_body C10)
+sed -i 's|^Claiming that item exits 3 and names no failing check\.$|Claiming that item exits 3: the refusal reaches the caller as `Option<Refusal>` and names no failing check.|' "$sph"
+run "$p" -- bug create --title 'the probe' --body-file "$sph"
+plain_created "$nspan" bug 'Option<Refusal>' && pass "$nspan"
+
+# 35. #41 — the second defect in the same function, hit while filing that report. The strip pairs backticks
+#     blindly over the joined body, so a fence's three mis-pair: the first two cancel, the third pairs with
+#     the next backtick in the text, and the span strip then removes the fence's opening and exposes the
+#     text the fence was protecting. A bug report that quotes a template line verbatim — the one thing an
+#     Evidence section is for — is therefore refused for containing it, and the only way to file this very
+#     report was to indent the block instead of fencing it.
+nfence="body_placeholders does not expose a stub quoted inside a fenced block"
+fph=$(bug_body C11)
+sed -i 's|^Claiming that item exits 3 and names no failing check\.$|Claiming that item exits 3 and names no failing check. The template line it was filed from reads:\n\n```\nRole: `<crew role>` · design: <none, or the doc> · found <where and when>\n```|' "$fph"
+run "$p" -- bug create --title 'the probe' --body-file "$fph"
+plain_created "$nfence" bug 'Role: `<crew role>` · design: <none, or the doc>' && pass "$nfence"
+
 if [ "$fails" -eq 0 ]; then echo "PASS"; exit 0; fi
 echo "FAIL ($fails)"; exit 1

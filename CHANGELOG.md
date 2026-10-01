@@ -306,6 +306,17 @@ labels come from, and `tech-debt create` has nothing to file under until it has 
   line, where the placeholder scan already refuses it unfilled — a flag would write a second copy of a
   fact with nothing holding the two equal. A board that wants `role:<r>` on one of these adds it with
   `gh issue edit --add-label`, which skips no check, because every check here is on the body.
+
+  > **Correction, filed as #41 and fixed after `0.8.0`.** One of those three reasons was not true when
+  > this entry was published: the placeholder scan did *not* refuse an unfilled role. `item-bug.md`
+  > writes the role inside a code span, and the scan strips code spans before it looks for stubs, so the
+  > one stub naming an owner was the one stub it could never report — fifteen of that template's sixteen
+  > were found and that one was not. A bug could be filed with its role still reading `<crew role>` and
+  > nothing said so. The sentence holds from the release that fixes #41 onwards, and the decision it was
+  > offered in support of stands on the other two reasons, which never depended on it: no command reads a
+  > role label off a bug or tech-debt row, and a flag would write a second copy of a fact with nothing
+  > holding the two equal.
+
 - **`ensure-labels` mints `bug` and `tech-debt`** (#21). Without them a consuming board had no label to
   carry either shape, and `lint --kind tech-debt` named a kind nothing on a fresh board could be.
   `tech-debt` is new (`8D6E63`). `bug` is minted in GitHub's own `D73A4A` on purpose — GitHub creates

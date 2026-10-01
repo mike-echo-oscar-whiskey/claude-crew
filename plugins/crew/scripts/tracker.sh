@@ -105,9 +105,26 @@ section_body() { awk -v h="$2" '$0 == h {f = 1; next} /^## /{f = 0} f' "$1"; }
 section_has_text() { [ -n "$(section_body "$1" "$2" | tr -d '[:space:]')" ]; }
 
 body_placeholders() { # <file> -> the template stubs still in the body, one per line
-  # The body is joined into one line first: a code span and a stub both wrap across line breaks,
-  # so a line-at-a-time scan reports a wrapped `<…>` inside backticks as unfilled.
-  tr '\n' '\001' < "$1" | sed -E 's/`[^`]*`//g' \
+  # Fenced blocks go first, whole, and line-at-a-time because that is the only place a fence is visible:
+  # a fence quotes verbatim material, so a stub quoted inside one is not an unfilled stub, and its three
+  # backticks mis-pair with the span strip below — the first two cancel, the third pairs with the next
+  # backtick in the text, and the strip then removes the fence's own opening and exposes the text the
+  # fence was protecting (#41). An opener with no closer protects nothing, so its lines are handed back
+  # at the end rather than dropped: a single stray fence would otherwise switch the rest of the scan off.
+  # The rest is joined into one line: a code span and a stub both wrap across line breaks, so a
+  # line-at-a-time scan reports a wrapped `<…>` inside backticks as unfilled. Spans are then stripped,
+  # which is what keeps a real `List<string>` out of the report — but a span holding NOTHING but a stub
+  # is unwrapped first, because that is a stub the template shipped inside backticks rather than content
+  # a role wrote: `item-bug.md` writes its role that way, which is why the one stub naming an owner was
+  # the one stub this scan could never report (#41). A body wanting a literal `<div>` writes it in a
+  # fence, where nothing is read at all.
+  awk '
+    /^```/ { if (f) { f = 0; held = "" } else { f = 1 }; next }
+    f      { held = held $0 "\n"; next }
+           { print }
+    END    { printf "%s", held }
+  ' "$1" \
+    | tr '\n' '\001' | sed -E 's/`(<[^<>]*>)`/\1/g; s/`[^`]*`//g' \
     | { grep -aoE '<!--|<[^<>[:space:]/][^<>]*>' || true; } \
     | { grep -avE '^<https?:' || true; } | tr '\001' ' ' | sort -u
 }
@@ -317,11 +334,14 @@ plain_create() { # <kind> --title T --body-file F — bug and tech-debt
   # `role:<r>` on the item, and `next` and `status` read that label off task rows to say who owns the work.
   # Neither command looks at a bug or a tech-debt item, so the label buys no mechanism there — and the two
   # shapes do not ask for one. `item-tech-debt.md` names no role at all; `item-bug.md` carries its role in
-  # the body's own first line, written by the role that wrote the body, where `check_placeholders` already
-  # refuses it unfilled. A flag would make the adapter write a second copy of a fact the body states, with
-  # nothing holding the two equal — the disagreement `validate_plain_body` avoids by having no header
-  # contract at all. A board that wants the label adds it with `gh issue edit --add-label`, which skips no
-  # check because every check here is on the body.
+  # the body's own first line, written by the role that wrote the body, where `check_placeholders` refuses
+  # it unfilled — but only because `body_placeholders` unwraps a span holding nothing but a stub, since the
+  # template writes that role inside backticks. This sentence was false until #41 made it true; the witness
+  # is "bug create refuses a body whose role line is still the template's stub", and a simplification of
+  # that unwrap takes this reason down with it. A flag would make the adapter write a second copy of a fact
+  # the body states, with nothing holding the two equal — the disagreement `validate_plain_body` avoids by
+  # having no header contract at all. A board that wants the label adds it with `gh issue edit
+  # --add-label`, which skips no check because every check here is on the body.
   local kind=$1 title="" body=""; shift
   while [ $# -gt 0 ]; do case "$1" in --title) title=$2; shift 2;; --body-file) body=$2; shift 2;; *) echo "bad arg $1" >&2; exit 1;; esac; done
   [ -n "$title" ] && [ -f "$body" ] || { echo "$kind create needs --title and --body-file" >&2; exit 1; }
