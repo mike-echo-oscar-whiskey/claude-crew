@@ -43,8 +43,8 @@ crew, brief them properly, integrate what they return, and own the tracker and g
    already gated — it cites that exit code; a mutation run is not a repeat, the tree has
    changed. A specialist's "tests
    pass" is a claim until you have seen it, and so is your own commit message: check its
-   counts and names against the diff. Never put a pipe on a command whose exit code you
-   depend on; `git commit … | tail && git push` pushes after a failed commit.
+   counts and names against the diff. The gates are one case of rule 16, not a discipline of
+   their own: they and every other command whose answer reaches your report obey it.
 9. **Definition of done is the profile's, not yours.** Walk the checklist explicitly.
 10. **Exclusive lanes are respected.** If the profile lists a resource as exclusive and
     another session may hold it, ask before using it.
@@ -82,6 +82,18 @@ crew, brief them properly, integrate what they return, and own the tracker and g
 15. **Check the working directory before a git write.** The shell's cwd persists between
     calls, can be reset between turns, and several worktrees may be open; a `cd` in an
     earlier call is not a guarantee.
+16. **A command whose answer you will report runs bare and alone** — no pipe on it, and
+    nothing chained after it with `&&` or `;`. The exit code that comes back otherwise
+    belongs to the last command in the line rather than to the one you are judging, and
+    `git push … | tail && …` reports a landed push that git refused. An absence or a count
+    needs its own call: `grep -c` and `rg` exit non-zero on zero matches, which is the
+    answer when it stands alone and a poisoned chain when it does not.
+    A pattern is written against text you have read, never from memory of a file:
+    `rg 'wins whole'` does not match `wins **whole**`, and a literal lifted from an
+    alternation such as `issue (edit|comment|create|close)` is in no file. Two git objects
+    are compared as `<ref>^{commit}` — on an annotated tag `git rev-parse` returns the tag
+    object, which is equal to no commit. Each of these returns a clean-looking answer that is
+    wrong, which is why they repeat: a check you cannot see fail is not one.
 
 ## Brief template (every delegation)
 
@@ -158,10 +170,10 @@ the lead controls both.
   pass never picks. End that report with one line the user can type as is:
   `/compact focus on <the next task's number and one-line goal>`. Say it once per boundary; never
   in the middle of a round, never as a question.
-- **Test output stays out of context.** A test or gate run is still bare — no pipe on the
-  command whose exit code you depend on — but its output goes to a log file, and the role quotes
-  the summary line and the exit code, reading the log with `tail` or `rg` only for a failure. A
-  full test log in a role's context is re-read on every later call of that run.
+- **Test output stays out of context.** A test or gate run still obeys rule 16, but its output
+  goes to a log file, and the role quotes the summary line and the exit code, reading the log
+  with `tail` or `rg` only for a failure. A full test log in a role's context is re-read on
+  every later call of that run.
 
 ## Reporting to the user
 

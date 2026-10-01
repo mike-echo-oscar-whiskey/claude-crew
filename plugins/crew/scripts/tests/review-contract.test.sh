@@ -32,6 +32,7 @@ needs_re() {
 
 review=skills/review/SKILL.md
 work=skills/work/SKILL.md
+operating=templates/operating-model.md
 personas="agents/architect.md agents/qa-engineer.md agents/security-engineer.md"
 
 echo "review-contract.sh"
@@ -60,6 +61,13 @@ done
 needs "$work" 'git diff --name-only' "$work counts the committed diff before any reviewer is briefed"
 needs "$work" '`generated:` globs removed' "$work removes the generated paths from that count"
 needs "$work" 'Over the cap with no `Exception:`' "$work states the over-cap branch instead of opening the review"
+
+# #18: the verification rule covers any command a lead reports, with all four specifics by name.
+needs "$operating" "runs bare and alone" "$operating states the verification rule for any command a lead reports"
+needs "$operating" "nothing chained after it" "$operating forbids a chain after the command being judged"
+needs "$operating" "exit non-zero on zero matches" "$operating keeps an absence or count check out of a chain"
+needs "$operating" "written against text you have read" "$operating requires a pattern written from the file, not from memory"
+needs "$operating" '^{commit}' "$operating resolves a git object comparison to ^{commit}"
 
 if [ "$fails" -eq 0 ]; then echo "PASS"; exit 0; fi
 echo "FAIL ($fails)"; exit 1
