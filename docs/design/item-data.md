@@ -198,7 +198,7 @@ end. The validator is one `jq` program in `tracker.sh` that emits an array of fa
 .schema != 1 then "schema must be 1" else empty end, …]`), printed one per line as `refused: …`, every
 failing check at once, in the form D5 set. There is no JSON Schema file: nothing available on a
 consumer's machine could enforce one, and a schema document nothing refuses rots. The `jq` program is
-the schema; the table above is its prose; `scripts/tests/tracker.test.sh` holds the two together.
+the schema; the table above is its prose; `tests/tracker.test.sh` holds the two together.
 
 *Forecloses:* an open key set; a JSON Schema file; a `python3`/`ajv`/`yq` dependency; a note that
 runs to a second line.
