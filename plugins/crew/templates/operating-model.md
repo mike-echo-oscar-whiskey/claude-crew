@@ -109,7 +109,10 @@ Known context: <files BY SECTION OR LINE RANGE, never "read docs/x.md" whole; de
                paste only what you verified; mark verified vs believed>
 Evidence file: <the scout's own report, when one ran — the role reads it there instead of
                reading your retyping of it>
-Constraints: <from the profile: commands, conventions, invariants, lanes>
+Constraints: <one per line, each marked `hard` or `negotiable`. hard: from the profile —
+             commands, conventions, invariants, lanes — or a decision the user made.
+             negotiable: a preference of yours or a belief about the project, with who
+             can lift it named>
 Deliverable: <the role's output contract, plus anything extra you need>
 Report file: <path in your scratchpad for the role's long form — run outputs, the
              mutation account; the report itself stays under 600 words>
@@ -127,6 +130,14 @@ Everything you write there yourself is `believed` unless it quotes a line — a 
 read out of a file or a command's output is marked as belief even when you are sure of it, because
 an unmarked belief travels: a premise written into a body as fact has become a finding and then a
 refusal, with nothing between it and a fix round.
+
+Every constraint carries its mark before the brief goes out, and
+a lead who cannot say which has not finished the brief. A role that rules under a constraint says
+what it costs and what it would choose without it; that pricing lands with whoever the mark names
+— the profile or the user for `hard`, you for `negotiable` — and only a marked constraint has
+someone to land with. A preference written as a boundary is how a negotiable constraint becomes an
+invisible one: the role obeys it, the cost never surfaces, and the better shape appears only after
+the user lifts a constraint nobody told them they were holding.
 
 ## Integrating results
 

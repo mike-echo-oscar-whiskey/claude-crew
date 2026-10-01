@@ -75,6 +75,30 @@ lacks_blocking_on_toothless() {
   if [ -z "$hits" ]; then pass "$label"; else fail "$label" "a toothless check blocks a change by: $hits"; fi
 }
 
+# lacks_constraints_as_given <label>
+# The absence half of the pricing rule, written the way the two absence checks above are written:
+# every markdown file the plugin ships, and the README beside it, split into clauses on `.`, `;`
+# and `:`, searched for a clause that tells a role to take a brief's constraints as given. Its
+# limits, exactly. It searches three fixed phrasings and nothing else — `as given`, `as a given`,
+# `as stated` — and only in a clause that also contains `constraint`, so `obey the brief's
+# constraints`, `the constraints are not yours to question`, and `as given` in a clause about
+# something other than a constraint all pass unseen; widening that vocabulary is not attempted,
+# because the two positive cases below pin the shipped wording instead. And it excuses nothing: a
+# refusal phrased with those words (`never takes a constraint as given`) is a hit like any other,
+# so the shipped sentences state the rule without them. Zero hits is a non-zero exit from grep, so
+# this check stands alone and is judged on the hits themselves.
+lacks_constraints_as_given() {
+  local label=$1
+  local hits="" f clause
+  while IFS= read -r f; do
+    clause=$(tr '\n' ' ' <"$f" | sed 's/\([.;:]\) /\1\n/g' \
+      | grep -Ei -- 'constraint' \
+      | grep -Ei -- 'as given|as a given|as stated')
+    [ -n "$clause" ] && hits="$hits${f#"$root/"}: $clause"$'\n'
+  done < <(find "$crew" "$readme" -type f -name '*.md')
+  if [ -z "$hits" ]; then pass "$label"; else fail "$label" "a brief's constraints are taken as given by: $hits"; fi
+}
+
 review=skills/review/SKILL.md
 work=skills/work/SKILL.md
 operating=templates/operating-model.md
@@ -218,6 +242,21 @@ needs "$profile" "earns none, and a project that ships nothing never owes one" \
   "$profile states what does not earn a release"
 needs "$profile" "the last step of finishing that batch, not something remembered afterwards" \
   "$profile makes cutting the release part of finishing the batch"
+
+# #44: a ruling under a constraint prices it. The architect's half names both the cost and the
+# unconstrained choice in one sentence — a cost without an alternative is not actionable, so the two
+# are asserted together rather than as two literals a file could keep apart. The lead's half is the
+# brief template's Constraints line carrying the two marks, and the rule that an unmarked constraint
+# is an unfinished brief. The absence half searches what no shipped sentence may say; its limits are
+# stated on the function above.
+needs_re agents/architect.md 'names what that constraint costs[^.]*what you would choose without it' \
+  "the architect prices a constraint rather than only obeying it"
+needs_re "$operating" '^Constraints: <[^>]*marked `hard` or `negotiable`' \
+  "the brief template marks every constraint hard or negotiable"
+needs "$operating" "a lead who cannot say which has not finished the brief" \
+  "the brief template makes an unmarked constraint an unfinished brief"
+lacks_constraints_as_given \
+  "no sentence the plugin ships tells a role to take a brief's constraints as given"
 
 if [ "$fails" -eq 0 ]; then echo "PASS"; exit 0; fi
 echo "FAIL ($fails)"; exit 1
