@@ -886,6 +886,14 @@ has a dependency on yq." The objection is withdrawn and is not re-argued here. D
 partly on "what is on the machine" and D16 foreclosed `yq` on the install-failure ground; both are
 re-ruled below with that ground gone. The shape survives it.
 
+The premise the whole ruling rests on, and the first thing to re-examine if anyone reopens this:
+asked whether he would hand-edit the facts file or read the rendered body, Kris answered that
+agents write it and he reads the body (2026-10-01). Comments are the one thing YAML has that JSON
+cannot express, and they buy nothing in a file no person edits — so the trade collapses and JSON
+wins without needing the arguments below. Should that premise ever change, and a person starts
+editing these files by hand, YAML through `mikefarah/yq` becomes the better choice and this
+decision should be reopened on that ground alone.
+
 **The data stays JSON — a choice, not a leftover.** Three reasons, none of them the dependency.
 
 1. *There is nothing left for YAML to carry.* The data file is ten scalar keys and two arrays of
