@@ -109,28 +109,32 @@ output. `haiku` is for locating and transcribing, where there is nothing to judg
 | `architect` | `fable` | `opus` | A design that fits the wrong layer is an error no gate catches: 4 runs on `fable` for the design itself. 3 runs were dispatched `opus` for the counting half — the plan whose first task shipped 34 hand-written files against this repository's size cap of 15. Down to `opus` once two consecutive plans hold every task under that cap. |
 | `backend-engineer` | `opus` | — | No run in the measured window; unchanged. |
 | `cloud-engineer` | `opus` | — | Infrastructure whose mistake surfaces in the apply rather than the review; 1 run, no miss logged. One run is thin: down to `sonnet` on a window of bounded chart or script edits. |
-| `commercial-analyst` | `sonnet` | — | Declares `sonnet`, and its one run in the window was dispatched `opus`. One dispatch is habit, not evidence, so the declaration stands as it is. Up to `opus` on a logged miss: a margin or tier claim a run got wrong. |
+| `commercial-analyst` | `opus` | — | The fallback for a call that names no tier, set to the tier the dispatches name when they do name one: 1 of 1 in the window. That count chose the fallback and is not a logged miss — nothing says `sonnet` got a margin or tier claim wrong. Down to `sonnet` on a window of bounded catalog or margin lookups. |
 | `event-sourcing-engineer` | `opus` | — | An event shape that is wrong is wrong permanently; 4 runs, no miss logged. Down to `sonnet` on a window whose runs only added handlers a rebuild checks. |
 | `frontend-engineer` | `opus` | — | A spec that passes while the screen is still wrong; 2 runs, no miss logged. The one run dispatched `haiku` was a mechanical edit moved down per call. Down to `sonnet` on a window whose runs were all bounded edits. |
 | `genai-engineer` | `opus` | — | No run in the measured window; unchanged. |
 | `integration-engineer` | `opus` | — | No run in the measured window; unchanged. |
 | `multitenancy-engineer` | `opus` | — | No run in the measured window; unchanged. |
 | `privacy-and-compliance` | `sonnet` | — | No run in the measured window, and the only default *below* `opus` that nothing has measured: `sonnet` here is a declaration, not a finding. Up to `opus` on a logged miss — an obligation a run did not name. |
-| `product-owner` | `sonnet` | — | Declares `sonnet`, and all seven of its runs in the window were dispatched `opus` explicitly. That is habit, which the rule below refuses as grounds, so the declaration stands rather than being ratified by it. Up to `opus` on a logged miss: a criterion a story left unprovable. |
+| `product-owner` | `opus` | — | The fallback for a call that names no tier, set to the tier the dispatches name when they do name one: 7 of 7 in the window. This persona writes the story every acceptance criterion is proved against, so a forgotten `model` argument landing on the cheaper tier is the mistake worth avoiding. That count chose the fallback and is not a logged miss. Down to `sonnet` on a window whose stories were all small and bounded. |
 | `qa-engineer` | `opus` | `sonnet` | A mutation review's verdict comes from running the mutation tool and judging which surviving mutants matter — a judgement on a result no gate grades: 8 runs on `opus`. The 1 run on `sonnet` was a read-only documentation review, which has a text to check against. The frontmatter has said `opus` since 0.5.6. Down to `sonnet` on a window with no mutation review in it. |
 | `scout` | `haiku` | — | Locating evidence for a brief — paths, lines, symbols — and returning no verdict; 1 run, no miss logged. Up on a brief whose Known context a run got wrong. |
 | `security-engineer` | `fable` | — | An exposure nobody named is an error no gate catches: 4 runs on `fable`. The 1 run on `sonnet` was dispatched for a read-only check. Down to `opus` on a window where every exposure it named was also caught by a gate. |
 | `technical-writer` | `sonnet` | `haiku` | Prose checked against the code, where the text to check against exists: 4 runs on `sonnet`, 3 dispatched `haiku` for one-line factual corrections. The 3 runs dispatched `opus` were whole-section prose — the same kind of work at a larger size, moved per call, which is why `opus` is not the second tier. Up to `opus` on a logged miss: prose that shipped contradicting the code. |
 | `ux-designer` | `opus` | — | No run in the measured window; unchanged. |
 
-A tier moves only on named evidence — a logged miss in the audit, a deliverable a run skipped, or a
-verdict that could not be trusted — never on impression, and the run that justifies a move is named
-in this roster when the move is made. It moves **down** on that same standard read the other way: a
-window in which the work needed no judgement the lower tier could not have given. What is **not**
-grounds, in either direction: that the persona has been dispatched at some other tier. `product-owner`
-and `commercial-analyst` declare `sonnet` and were dispatched `opus` in every run of the measured
-window — seven runs and one — and they still declare `sonnet`, because a habit is not a miss. The
-roster records the habit instead of ratifying it.
+What moves a tier is the finding that a persona's tier is *wrong* — that the work it does needs a
+tier other than the one it is getting. That is a quality claim, so it moves only on named evidence: a
+logged miss in the audit, a deliverable a run skipped, or a verdict that could not be trusted —
+never on impression, and the run that justifies the move is named in this roster when the move is
+made. It reads the same way **down**: a window in which the work needed no judgement the lower tier
+could not have given. What is **not** grounds for it, in either direction, is that the persona has
+been dispatched at some other tier, because a habit is not a miss. The **Default** column answers a
+different question — which tier runs when a lead names none — and a fallback is chosen rather than
+earned, so this rule does not reach it: the tier the dispatches ask for is the sensible fallback,
+because a forgotten `model` argument should land on what the role is wanted on. That is why
+`product-owner` and `commercial-analyst` default to `opus` with no logged miss behind either, and why
+that default is not a claim their `sonnet` was wrong — only that nobody dispatches them on it.
 
 A pin fails hard when its allowance — the quota that tier draws on in a window — runs out: every
 pipeline step stops with a 429 instead of degrading (seen 2026-09-04), and the allowance burns in the
