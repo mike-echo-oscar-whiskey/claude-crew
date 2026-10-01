@@ -241,14 +241,16 @@ the tokens of a single-agent session; the profile's triage table keeps small thi
 
 An agent review is a net under your own, never a substitute for it. A review brief carries the diff
 and the criteria and nothing the people who did the work wrote about it; one round is the ceiling;
-and a contested finding goes to you rather than to a second pass in the same session.
+and a contested finding goes to you rather than to a second pass in the same session. A change is
+not recorded as reviewed until the named human has read it: your own reading is what makes it
+reviewed, whoever ends up merging it, and nothing the crew does records that for you.
 
 Little in the gate checks what this README and the two manifests claim. `claude plugin validate .`
 reads the manifests' structure, `jq empty` their syntax, `tests/model-roster.test.sh` holds
 the "Model per role" table's Default column against the persona frontmatter, and
-`tests/review-contract.test.sh` holds the three sentences above about the review ceiling and
-searches every Markdown file the plugin ships, plus this README beside the payload, for one that
-would permit a second round. That is the whole of it. Nothing in it reaches what either file claims about the
+`tests/review-contract.test.sh` holds the four sentences above about the review ceiling and what it
+does not stand in for, and searches every Markdown file the plugin ships, plus this README beside the
+payload, for one that would permit a second round. That is the whole of it. Nothing in it reaches what either file claims about the
 plugin's own shape: the skill set, the counts in Layout and the `17` in both manifest descriptions
 are true by review only, which is why neither description enumerates the skills — an enumeration
 that goes stale is invisible to every check here, and one did.

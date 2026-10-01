@@ -99,6 +99,14 @@ for f in "$review" "$work" $personas; do
     "$f defers a pre-existing p2 to one line in the change set's description and its own item"
 done
 
+# #40 / AC2: the route the reproduction rule leads to. The disjunction above says when a finding
+# stands; this asserts what a claim without one becomes — a question marked *believed* rather than a
+# finding — by the word the criterion's prover names, in both steps and all three review personas.
+for f in "$review" "$work" $personas; do
+  needs_re "$f" 'marked \*?believed\*?' \
+    "$f marks an unreproduced claim believed rather than found"
+done
+
 # #26 / AC3: one round of agent review is the ceiling, in the review step and in the README, and no
 # sentence anywhere permits a second.
 needs "$review" "One round of agent review is the ceiling" \
@@ -117,6 +125,18 @@ needs "$readme" "An agent review is a net under your own, never a substitute for
   "the README calls the agent review a net under the human's own"
 lacks_re '(second|another) (in-session |agent )?(round|pass)[^.]{0,60} (may|can|is allowed|is permitted|if needed|when needed)|(may|can|is allowed to|is permitted to)[^.]{0,40} (second|another) (in-session )?(round|pass)' \
   "no sentence the plugin ships permits a second in-session round"
+
+# #40 / AC3: the ceiling's other half — the obligation that nothing shipped used to state. It binds
+# where a lead acts on it: the review step, the README beside the ceiling sentences, and the merge
+# step, which also has to say why holding merge authority is not the same as having read the change.
+needs "$review" "not recorded as reviewed until the named human has read it" \
+  "$review states that a change is not recorded as reviewed until the named human has read it"
+needs "$readme" "not recorded as reviewed until the named human has read it" \
+  "the README states that a change is not recorded as reviewed until the named human has read it"
+needs "$work" "not recorded as reviewed until the named human has read it" \
+  "$work's merge step carries the same obligation"
+needs "$work" "answers who may merge and says nothing about who has read" \
+  "$work distinguishes merge authority from the named human's reading"
 
 # #33: the release rule in the shipped profile template — when a release is owed, what earns none,
 # and that cutting it finishes the batch. Stated generally on purpose: a consuming project renders
