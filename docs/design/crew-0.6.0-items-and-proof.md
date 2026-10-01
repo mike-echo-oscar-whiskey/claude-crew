@@ -2,7 +2,11 @@
 
 Design for stories #1 and #2, release 0.6.0. Architect, 2026-09-30. Status: **shipped** in **0.6.0**
 on **2026-10-01** (task #10). Sections are numbered §1–§10 because the eight task
-bodies (#3–#10) cite them by that number; the map is at the end. What the plan got wrong is recorded
+bodies (#3–#10) cite them by that number; the map is at the end. The body's `D<n>` headings are a
+second scheme and not interchangeable with the first: a `D` number names one decision and is how
+this document cross-references itself, a `§` number names the section a set of them lives in and is
+the only form a task body or a review brief cites — the map at the end is what turns one into the
+other. What the plan got wrong is recorded
 in "Corrections the tasks returned", below the Risks — the decisions themselves stand as written,
 because a design document records what was decided when it was decided.
 

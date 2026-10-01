@@ -239,6 +239,12 @@ skills: an enumeration that goes stale is invisible to every check here, and one
 `tracker.sh lint --all` is deliberately not on the `gates:` line either — it would turn a gate red
 for items nobody has had the chance to bring over.
 
+`lint` reads at most 500 items per kind (`scripts/tracker.sh:395`) and its closing line reports only
+the conforming and non-conforming counts. On a board past 500 items of one kind the pass is therefore
+partial while its output still reads as complete — the design asked that closing line to say so and
+the implementation shipped without it. Tracked as issue #14; until that is fixed, read `lint` on a
+large board as a lower bound rather than a verdict.
+
 The `/crew:*` skills are human-only under Claude Code, by `disable-model-invocation: true` in all
 ten. Under Codex that key is rejected by its own authoring validator and parsed by neither of its
 runtime paths (verified 2026-10-01), so a command written for a human to run — `/crew:conform`, which

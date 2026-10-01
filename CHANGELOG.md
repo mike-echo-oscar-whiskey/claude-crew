@@ -9,6 +9,11 @@ Minor, not patch: the item templates and `/crew:conform` are new capability, the
 are additive with stated fallbacks, and one existing behaviour changes — `story create` and
 `task create` now refuse a body that is off-shape.
 
+One output changes shape too: `tracker.sh show <n>` printed comments only and now prints the item,
+then `--- comments ---`, then the comments. Anything parsing that output breaks. Nothing in this
+repository parses it — the skills that call `show` read it, and no test or script asserts on its
+shape — so it is minor here; if you have a script around `show`, read it before you upgrade.
+
 ### What changed
 
 - **Every item has one shape.** Four bodies ship with the plugin and are read at runtime —
@@ -53,30 +58,49 @@ are additive with stated fallbacks, and one existing behaviour changes — `stor
 - **`tracker.sh show <n>`** prints the item and then its comments, separated by `--- comments ---`.
   It printed only the comments before, which hid every body from the two pipeline steps that open on
   it.
+- **`plan` and `refine` read the shipped shapes.** Both resolve the item body before briefing anyone
+  — `.claude/crew/items/<kind>.md` if the project has one, else the plugin's
+  `templates/item-<kind>.md` — and hand the architect or the product-owner that rendered body to
+  fill. Neither invents a shape from prose any more.
+- **QA gets no worktree it cannot use.** `/crew:work` step 4 and `/crew:review` step 1 create the
+  qa-engineer's mutation worktree only when the diff changes code a test protects. For a docs-only
+  diff, or a script nothing builds or imports, no worktree is made, the brief says the mutation
+  review is not applicable, and the PR says so too.
+- **`ensure-labels` mints the review severities.** It now creates `p1`, `p2` and `p3` alongside the
+  lane and `role:*` labels, so a review finding has a label to carry.
 - New: `scripts/tests/review-contract.test.sh`, `scripts/tests/model-roster.test.sh`. Four witnesses
-  now, all on the `test:` and `gates:` lines.
+  now — all on the `test:` and `gates:` lines of **this repository's own**
+  `.claude/crew/profile.md`, which is what the plugin is developed against. Nothing is asked of your
+  profile.
 
 ### What to do
 
-1. Install it: `claude plugin install crew@claude-crew`. Nothing else is required.
-2. Optionally add the four new keys to `.claude/crew/profile.md` — `generated:`, `size-cap:`,
+1. Install it: `claude plugin install crew@claude-crew`.
+2. Re-run `scripts/tracker.sh ensure-labels`. This is the one action an existing board needs: `p1`,
+   `p2` and `p3` are new, and a board set up before this release does not have them until you do.
+   The command is idempotent and updates the labels it already made.
+3. Optionally add the four new keys to `.claude/crew/profile.md` — `generated:`, `size-cap:`,
    `definition-of-done:` and `merge-authority:`. Each renders its fallback in the item body when
    absent, so a profile written for 0.5.9 is a valid 0.6.0 profile. `/crew:init` fills `generated:`
    by scanning and asks the other three.
-3. Run `scripts/tracker.sh lint --all` to see which existing items would fail a refusal, then
-   `/crew:conform` when you want them brought over. Do not add `lint --all` to your `gates:` line
-   until that pass has run and the board reports zero non-conforming — otherwise every gate run goes
-   red for items nobody has had the chance to migrate.
+4. Run `scripts/tracker.sh lint --all` to see which existing items are off-shape and so will
+   warn at claim, then `/crew:conform` when you want them brought over. Do not add `lint --all` to
+   your `gates:` line until that pass has run and the board reports zero non-conforming — otherwise
+   every gate run goes red for items nobody has had the chance to migrate.
 
 ### What happens if a project changes nothing
 
-Three things, and nothing else:
+Four things, and nothing else:
 
 1. **On new bodies, from day one:** `story create` and `task create` refuse a body that does not
    conform. Nothing already on the board is touched.
 2. **On old bodies, from day one:** `claim` succeeds and prints the failing checks as `warning:`
    lines. Every item stays claimable; no item is reshaped, refused or unclaimed for being old.
-3. **When the project chooses, never before:** `lint --all` reports and `/crew:conform` migrates, and
+3. **On finished items, from day one:** `/crew:work` step 7 closes a merged item with
+   `release --to done` instead of leaving it closed with a lane label on. Nothing retroactive:
+   items closed before this release keep their stale lane label, and `status` keeps counting them as
+   in flight, until someone takes it off by hand. No command in this release does that for you.
+4. **When the project chooses, never before:** `lint --all` reports and `/crew:conform` migrates, and
    `conform` edits one item only after a human has approved its diff.
 
 There is no migration tooling past that one command, no version negotiation and no compatibility
