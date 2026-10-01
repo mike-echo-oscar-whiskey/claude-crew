@@ -46,6 +46,28 @@ lacks_re() {
   if [ -z "$hits" ]; then pass "$label"; else fail "$label" "a second round is permitted by: $hits"; fi
 }
 
+# lacks_blocking_on_toothless <label>
+# The absence half of the calibration, written the way the ceiling's absence check above is written:
+# every markdown file the plugin ships, and the README beside it, searched for a sentence that would
+# block a change on a check that cannot fail. The shipped sentences state that rule as a refusal
+# ("never blocks"), and the refusal sits in the same clause as the verb, so each file is first split
+# into clauses on `.`, `;` and `:` — a clause that names a toothless check and an obligation to block,
+# and does not refuse it, is a hit. Splitting first is what gives this teeth: a blocking clause added
+# beside a refusing one is judged on its own rather than excused by its neighbour. Zero hits is a
+# non-zero exit from grep, so this check stands alone and is judged on the hits themselves.
+lacks_blocking_on_toothless() {
+  local label=$1
+  local hits="" f clause
+  while IFS= read -r f; do
+    clause=$(tr '\n' ' ' <"$f" | sed 's/\([.;:]\) /\1\n/g' \
+      | grep -Ei -- 'cannot fail|could not fail|toothless' \
+      | grep -Ei -- 'blocks|p1|fixed before th(e|is) change is offered|sends? the change back|requests? changes' \
+      | grep -Eiv -- 'never')
+    [ -n "$clause" ] && hits="$hits${f#"$root/"}: $clause"$'\n'
+  done < <(find "$crew" "$readme" -type f -name '*.md')
+  if [ -z "$hits" ]; then pass "$label"; else fail "$label" "a toothless check blocks a change by: $hits"; fi
+}
+
 review=skills/review/SKILL.md
 work=skills/work/SKILL.md
 operating=templates/operating-model.md
@@ -98,6 +120,39 @@ for f in "$review" "$work" $personas; do
   needs_re "$f" 'a pre-existing `p2` the diff merely sits beside is[^.]*(deferred to|costs) one line in[^.]*its own item in the tracker' \
     "$f defers a pre-existing p2 to one line in the change set's description and its own item"
 done
+
+# #43 / AC2: what the blocking severity is reserved for, and the route for a finding whose subject is
+# a check rather than the code. Not a loop: the five sentences are deliberately not copies of one
+# another, each written in its own file's voice, so each half is asserted against that file's own
+# words — a shared tolerant regex here would pass on a sentence that no longer carries the rule.
+needs "$review" "What the blocking severity is *for* bounds what may block: harm a person can meet" \
+  "$review reserves the blocking severity for harm a person can meet"
+needs "$review" "is one severity down and never blocks the change" \
+  "$review sends a check that cannot fail on correct code one severity down"
+needs "$work" "The blocking severity is reserved for harm a person can meet" \
+  "$work reserves the blocking severity for harm a person can meet"
+needs "$work" "is rated one severity lower and never sends the change back" \
+  "$work sends a check that cannot fail on correct code one severity down"
+needs agents/architect.md "Reserve the blocking rating for harm a person can meet" \
+  "agents/architect.md reserves the blocking rating for harm a person can meet"
+needs agents/architect.md 'over code that is correct, is a `p2` and never blocks,' \
+  "agents/architect.md sends a check that cannot fail on correct code one severity down"
+needs agents/qa-engineer.md "the blocking rating is for harm a person can meet" \
+  "agents/qa-engineer.md reserves the blocking rating for harm a person can meet"
+needs agents/qa-engineer.md "is one severity below the anchor's rating and never blocks the change" \
+  "agents/qa-engineer.md sends a survived mutant over correct code one severity down"
+needs agents/security-engineer.md "The blocking rating answers harm a person can meet" \
+  "agents/security-engineer.md reserves the blocking rating for harm a person can meet"
+needs agents/security-engineer.md 'is a `p2` that never blocks this change' \
+  "agents/security-engineer.md sends a check that cannot fail on correct code one severity down"
+# The one phrase the five share, asserted on its own because the absence check below searches for it:
+# a file that reworded it would keep its own two cases green while dropping out of the sweep.
+for f in "$review" "$work" $personas; do
+  needs "$f" "cannot fail for the reason it" \
+    "$f names the check by what it cannot do, in the words the absence sweep searches for"
+done
+lacks_blocking_on_toothless \
+  "no sentence the plugin ships blocks a change on a toothless check"
 
 # #40 / AC2: the route the reproduction rule leads to. The disjunction above says when a finding
 # stands; this asserts what a claim without one becomes — a question marked *believed* rather than a
