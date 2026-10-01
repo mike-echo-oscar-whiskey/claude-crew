@@ -69,5 +69,5 @@ the `test:` and `gates:` lines above.
 
 - The copy this session runs on is the installed cache (~/.claude/plugins/cache/claude-crew/crew/<version>/), not this checkout; an edit here is only live after reinstall or `claude --plugin-dir ./plugins/crew`.
 - Hook and skill paths are resolved through `${CLAUDE_PLUGIN_ROOT}`; a hard-coded path breaks every install but the author's.
-- architect and security-engineer are pinned to `fable`; scout to `haiku`. A pinned model whose allowance is exhausted stops the pipeline with a 429 (seen 2026-09-04): the lead re-issues that run at the persona's default tier or below and names the downgrade (operating model rule 13); see README "Model per role".
+- Some personas are pinned above the house default, and a pinned model whose allowance is exhausted stops the pipeline with a 429 (seen 2026-09-04): the lead re-issues that run at the persona's default tier or below and names the downgrade (operating model rule 13). Which personas those are, and the tier each one runs on, is README "Model per role" — the single place a tier is stated.
 - The tracker line above still names the `claude-crew` remote; the planned rename to `crew` moves it, and this line must follow.

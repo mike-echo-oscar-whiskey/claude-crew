@@ -103,7 +103,7 @@ Report file: <path in your scratchpad for the role's long form — run outputs, 
 When blocked: <return early with a hand-off note; do not guess>
 ```
 
-The lead may run `crew:scout` (haiku, read-only) to gather this evidence — paths, lines, symbols,
+The lead may run `crew:scout` (read-only) to gather this evidence — paths, lines, symbols,
 call sites, config keys — and pastes its result into Known context marked verified; specialists
 never call it, and it never returns a verdict.
 

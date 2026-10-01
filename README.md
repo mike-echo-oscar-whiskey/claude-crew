@@ -82,46 +82,65 @@ generated code) are declared in Result and the lead decides.
 
 ## Model per role
 
-One row per persona, keyed by the persona file in `plugins/crew/agents/`. **Default** is that file's
-frontmatter `model:`, verbatim. **Second tier** is the tier the lead passes on the Agent call for the
-other kind of work that persona does, and reads `—` for a persona that does one kind of work.
-**Why this tier** names the runs behind it: the counts are the audit of the 68 subagent runs in the
-2026-09-29/30 session (`scripts/subagent-model.sh audit`), and a persona with no run in that window
-says so instead of borrowing a reason it has not earned.
+One row per persona, keyed by the persona file in `plugins/crew/agents/`. **Dispatched** means the
+tier the lead passed on the Agent call that started a run; a call that passes no tier gets the
+persona's frontmatter `model:`. **Default** is that frontmatter value, verbatim. **Second tier** is
+the tier the lead dispatches for the other *kind* of work that persona does, and reads `—` for a
+persona that does one kind — the same work at a larger size is moved per call and is not a tier.
+**Why this tier** names the error the tier is bought against, the runs behind it, and what would move
+it.
+
+Every count comes from one measured window: the 68 subagent runs of the 2026-09-29/30 session
+(`scripts/subagent-model.sh audit`). A row's numbers are that persona's share of those 68, which is
+why they do not add up to 68 anywhere, and six personas have no run in the window at all — their rows
+say so instead of borrowing a reason they have not earned.
+
+One principle decides which tier a kind of work earns: the higher tier goes where the error it
+prevents is one no gate catches. A design that fits the wrong layer and an exposure nobody named are
+invisible to every test here, so `architect` and `security-engineer` are pinned to `fable`. `opus`
+over `sonnet` is that same test one step down — `opus` where a wrong answer survives review because
+the reader cannot see what is missing (a specification, a mutation verdict, a tenant boundary), and
+`sonnet` where the work is bounded and something other than the model that wrote it checks the
+output. `haiku` is for locating and transcribing, where there is nothing to judge.
 
 | Persona | Default | Second tier | Why this tier |
 |---|---|---|---|
-| `agentic-ai-engineer` | `opus` | — | 13 runs on `opus`. The four runs dispatched `haiku` were mechanical edits moved down per call, not a second kind of work. Unchanged. |
-| `architect` | `fable` | `opus` | 4 runs on `fable` for the design itself, 3 on `opus` for the counting half — the thirteen-task plan whose first task shipped 34 files (#716/#717). A design that fits the wrong layer is an error no gate catches. Unchanged. |
+| `agentic-ai-engineer` | `opus` | — | A tool surface or loop whose wrong turn a green suite still hides; 13 runs, no miss logged. The four runs dispatched `haiku` were mechanical edits moved down per call. Down to `sonnet` on a window whose runs were all bounded edits. |
+| `architect` | `fable` | `opus` | A design that fits the wrong layer is an error no gate catches: 4 runs on `fable` for the design itself. 3 runs were dispatched `opus` for the counting half — the plan whose first task shipped 34 hand-written files against this repository's size cap of 15. Down to `opus` once two consecutive plans hold every task under that cap. |
 | `backend-engineer` | `opus` | — | No run in the measured window; unchanged. |
-| `cloud-engineer` | `opus` | — | 1 run on `opus`; unchanged. |
-| `commercial-analyst` | `opus` | — | Declared `sonnet` and ran `opus` on its one run in the window. Changed here, `sonnet` → `opus`. |
-| `event-sourcing-engineer` | `opus` | — | 4 runs on `opus`; unchanged. |
-| `frontend-engineer` | `opus` | — | 2 runs on `opus`. The one run dispatched `haiku` was a mechanical edit moved down per call. Unchanged. |
+| `cloud-engineer` | `opus` | — | Infrastructure whose mistake surfaces in the apply rather than the review; 1 run, no miss logged. One run is thin: down to `sonnet` on a window of bounded chart or script edits. |
+| `commercial-analyst` | `sonnet` | — | Declares `sonnet`, and its one run in the window was dispatched `opus`. One dispatch is habit, not evidence, so the declaration stands as it is. Up to `opus` on a logged miss: a margin or tier claim a run got wrong. |
+| `event-sourcing-engineer` | `opus` | — | An event shape that is wrong is wrong permanently; 4 runs, no miss logged. Down to `sonnet` on a window whose runs only added handlers a rebuild checks. |
+| `frontend-engineer` | `opus` | — | A spec that passes while the screen is still wrong; 2 runs, no miss logged. The one run dispatched `haiku` was a mechanical edit moved down per call. Down to `sonnet` on a window whose runs were all bounded edits. |
 | `genai-engineer` | `opus` | — | No run in the measured window; unchanged. |
 | `integration-engineer` | `opus` | — | No run in the measured window; unchanged. |
 | `multitenancy-engineer` | `opus` | — | No run in the measured window; unchanged. |
-| `privacy-and-compliance` | `sonnet` | — | No run in the measured window; unchanged. |
-| `product-owner` | `opus` | — | Declared `sonnet` and ran `opus` seven times in the window, every one of them dispatched `opus`; the story it writes is the specification every criterion is proved against. Changed here, `sonnet` → `opus`. |
-| `qa-engineer` | `opus` | `sonnet` | 8 runs on `opus`, 1 on `sonnet`: a mutation review's verdict comes from running Stryker and reading what survived (`opus`); a read-only documentation review does not (`sonnet`). This table listed it under `fable` until the roster landed; the frontmatter has said `opus` since 0.5.6. |
-| `scout` | `haiku` | — | 1 run on `haiku`: locating evidence for a brief, no judgement. Unchanged. |
-| `security-engineer` | `fable` | — | 4 runs on `fable`, 1 on `sonnet`. An exposure nobody named is an error no gate catches. Unchanged. |
-| `technical-writer` | `sonnet` | `haiku` | 4 runs on `sonnet`, 3 on `haiku` for one-line factual corrections — and 3 on `opus`, moved up per call for whole-section prose. What would move the default to `opus`: a logged miss on a README truth pass, or a run that shipped prose the code contradicts. Unchanged. |
+| `privacy-and-compliance` | `sonnet` | — | No run in the measured window, and the only default *below* `opus` that nothing has measured: `sonnet` here is a declaration, not a finding. Up to `opus` on a logged miss — an obligation a run did not name. |
+| `product-owner` | `sonnet` | — | Declares `sonnet`, and all seven of its runs in the window were dispatched `opus` explicitly. That is habit, which the rule below refuses as grounds, so the declaration stands rather than being ratified by it. Up to `opus` on a logged miss: a criterion a story left unprovable. |
+| `qa-engineer` | `opus` | `sonnet` | A mutation review's verdict comes from running the mutation tool and judging which surviving mutants matter — a judgement on a result no gate grades: 8 runs on `opus`. The 1 run on `sonnet` was a read-only documentation review, which has a text to check against. The frontmatter has said `opus` since 0.5.6. Down to `sonnet` on a window with no mutation review in it. |
+| `scout` | `haiku` | — | Locating evidence for a brief — paths, lines, symbols — and returning no verdict; 1 run, no miss logged. Up on a brief whose Known context a run got wrong. |
+| `security-engineer` | `fable` | — | An exposure nobody named is an error no gate catches: 4 runs on `fable`. The 1 run on `sonnet` was dispatched for a read-only check. Down to `opus` on a window where every exposure it named was also caught by a gate. |
+| `technical-writer` | `sonnet` | `haiku` | Prose checked against the code, where the text to check against exists: 4 runs on `sonnet`, 3 dispatched `haiku` for one-line factual corrections. The 3 runs dispatched `opus` were whole-section prose — the same kind of work at a larger size, moved per call, which is why `opus` is not the second tier. Up to `opus` on a logged miss: prose that shipped contradicting the code. |
 | `ux-designer` | `opus` | — | No run in the measured window; unchanged. |
 
 A tier moves only on named evidence — a logged miss in the audit, a deliverable a run skipped, or a
 verdict that could not be trusted — never on impression, and the run that justifies a move is named
-in this roster when the move is made.
+in this roster when the move is made. It moves **down** on that same standard read the other way: a
+window in which the work needed no judgement the lower tier could not have given. What is **not**
+grounds, in either direction: that the persona has been dispatched at some other tier. `product-owner`
+and `commercial-analyst` declare `sonnet` and were dispatched `opus` in every run of the measured
+window — seven runs and one — and they still declare `sonnet`, because a habit is not a miss. The
+roster records the habit instead of ratifying it.
 
-`architect` and `security-engineer` are pinned to `fable` because their errors are the ones the gates
-cannot catch: a design that fits the wrong layer, an exposure that nobody named. A pin fails hard
-when the allowance runs out — every pipeline step stops with a 429 instead of degrading (seen
-2026-09-04) — and the allowance burns in the many specialist runs, not in the one lead context. That
-is why rule 13 of the operating model carries a fallback: the lead re-issues the run at the persona's
-default tier or below (`opus` for those two) and names the downgrade in the report, so the user can
-judge whether the verdict still carries. The same lever moves a run up: when a single review needs
-the depth — a mutation review of a guard, a security review of an exposure decision — the lead passes
-`model` on that Agent call and says so in the brief.
+A pin fails hard when its allowance — the quota that tier draws on in a window — runs out: every
+pipeline step stops with a 429 instead of degrading (seen 2026-09-04), and the allowance burns in the
+many specialist runs, not in the one lead context. That is why rule 13 of the operating model
+(`plugins/crew/templates/operating-model.md`) carries a fallback: the lead re-issues the run at the
+persona's default tier or below (`opus` for the two `fable` pins) and names the downgrade in the
+report, so the user can judge whether the verdict still carries. That downgrade is one run, not a
+tier move. The same lever moves a run up: when a single review needs the depth — a mutation review of
+a guard, a security review of an exposure decision — the lead dispatches `model` on that Agent call
+and says so in the brief.
 
 `effort:` is **not** a supported agent-frontmatter key (verified 2026-09-10 against the Claude Code
 hooks and subagent documentation, client 2.1.263): a subagent inherits the *session's* effort level,
