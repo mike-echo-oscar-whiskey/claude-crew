@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Witness for the reviewer-isolation contract: the review step, the work step and the three review
 # personas are read as files in this tree, and every sentence the contract rests on is asserted
-# present by name — the forbidden brief items, the reproduction rule, the `## Questions` section and
-# the before-review file count. Run it bare:
+# present by name — the forbidden brief items, the reproduction rule, the severity obligations, the
+# `## Questions` section, the before-review file count and the one-round ceiling, which is also
+# asserted by its absence: no file the plugin ships may permit a second round. Run it bare:
 #   bash plugins/crew/scripts/tests/review-contract.test.sh
 # Exits 0 when every case passes, 1 when any sentence is missing, and names the case either way.
 set -u
@@ -30,9 +31,21 @@ needs_re() {
   if grep -qE -- "$re" "$f"; then pass "$label"; else fail "$label" "$rel does not match: $re"; fi
 }
 
+# lacks_re <extended-regex> <label>
+# The absence half of the ceiling: every markdown file the plugin ships, and the README beside it,
+# searched for a sentence that would permit a second round. Zero matches is a non-zero exit from
+# grep, so this check stands alone and is judged on the hits themselves rather than on an exit code.
+lacks_re() {
+  local re=$1 label=$2
+  local hits
+  hits=$(find "$crew" "$crew/$readme" -type f -name '*.md' -exec grep -nEi -- "$re" {} +)
+  if [ -z "$hits" ]; then pass "$label"; else fail "$label" "a second round is permitted by: $hits"; fi
+}
+
 review=skills/review/SKILL.md
 work=skills/work/SKILL.md
 operating=templates/operating-model.md
+readme=../../README.md  # the plugin's README is the repository's own, two levels up from plugins/crew
 personas="agents/architect.md agents/qa-engineer.md agents/security-engineer.md"
 
 echo "review-contract.sh"
@@ -68,6 +81,37 @@ needs "$operating" "nothing chained after it" "$operating forbids a chain after 
 needs "$operating" "exit non-zero on zero matches" "$operating keeps an absence or count check out of a chain"
 needs "$operating" "written against text you have read" "$operating requires a pattern written from the file, not from memory"
 needs "$operating" '^{commit}' "$operating resolves a git object comparison to ^{commit}"
+
+# #26 / AC2: the severity obligations, in every place that files a finding. The reproduction rule
+# above says when a finding stands; these three say what standing obliges, and a reworded obligation
+# in any one of the five files fails here instead of passing unnoticed.
+for f in "$review" "$work" $personas; do
+  needs_re "$f" 'a `p1` is always fixed before th(e|is) change is offered' \
+    "$f states that a p1 blocks and is fixed before the change is offered"
+  needs_re "$f" 'a `p2` is fixed (in this change|here) (only )?when this change caused it or made it reachable' \
+    "$f fixes here a p2 this change caused or made reachable"
+  needs_re "$f" 'a pre-existing `p2` the diff merely sits beside is[^.]*(deferred to|costs) one line in[^.]*its own item in the tracker' \
+    "$f defers a pre-existing p2 to one line in the change set's description and its own item"
+done
+
+# #26 / AC3: one round of agent review is the ceiling, in the review step and in the README, and no
+# sentence anywhere permits a second.
+needs "$review" "One round of agent review is the ceiling" \
+  "$review states that one round of agent review is the ceiling"
+needs "$review" "a contested finding goes to the user" \
+  "$review sends a contested finding to the user"
+needs "$review" "never to a second in-session pass by readers who have taken a position" \
+  "$review refuses a second in-session pass by readers who have taken a position"
+needs "$review" "a net under the human review, never a substitute for it" \
+  "$review calls the agent review a net under the human's own"
+needs "$readme" "one round is the ceiling" \
+  "the README states that one round is the ceiling"
+needs "$readme" "a contested finding goes to you rather than to a second pass in the same session" \
+  "the README sends a contested finding to the human rather than to a second pass"
+needs "$readme" "An agent review is a net under your own, never a substitute for it" \
+  "the README calls the agent review a net under the human's own"
+lacks_re '(second|another) (in-session |agent )?(round|pass)[^.]{0,60} (may|can|is allowed|is permitted|if needed|when needed)|(may|can|is allowed to|is permitted to)[^.]{0,40} (second|another) (in-session )?(round|pass)' \
+  "no sentence the plugin ships permits a second in-session round"
 
 if [ "$fails" -eq 0 ]; then echo "PASS"; exit 0; fi
 echo "FAIL ($fails)"; exit 1
