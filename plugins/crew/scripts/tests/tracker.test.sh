@@ -35,8 +35,13 @@ case "$*" in
     case "$*" in
       *"--json body"*) echo "## Tasks" ;;                 # task create, appending the story checklist
       *assignees*) cat "${CREW_GH_CLAIM:-/dev/null}" ;;   # claim's one read, with -q already applied
-      *) f="${CREW_GH_LIST_DIR:-/nonexistent}/item-$num.json"
-         if [ -f "$f" ]; then cat "$f"; else echo '{}'; fi ;;
+      *--comments*) cat "${CREW_GH_COMMENTS:-/dev/null}" ;;   # show's second read: the comment stream alone
+      *) if [ -s "${CREW_GH_VIEW:-/dev/null}" ]; then      # show's first read: the item as a human reads it
+           cat "$CREW_GH_VIEW"
+         else
+           f="${CREW_GH_LIST_DIR:-/nonexistent}/item-$num.json"
+           if [ -f "$f" ]; then cat "$f"; else echo '{}'; fi
+         fi ;;
     esac ;;
 esac
 STUB
@@ -137,6 +142,8 @@ EOF
 
 lists="$tmp/lists"; mkdir -p "$lists"      # one canned `gh issue list --json` array per kind label
 claimjson="$tmp/claim.json"; : > "$claimjson"
+viewfile="$tmp/view.txt"; : > "$viewfile"              # `show`'s canned item view; empty for every other case
+commentsfile="$tmp/comments.txt"; : > "$commentsfile"  # `show`'s canned comment stream
 
 ghlog="" ghbody="" out="" rc=0
 # run <project-dir> -- <tracker args...>
@@ -147,6 +154,7 @@ run() {
   ghlog="$tmp/gh.log"; ghbody="$tmp/gh.body"; : > "$ghlog"; : > "$ghbody"
   out=$(cd "$dir" && CREW_PROJECT_DIR="$dir" CREW_GH_LOG="$ghlog" CREW_GH_BODY="$ghbody" \
         CREW_GH_LIST_DIR="$lists" CREW_GH_CLAIM="$claimjson" \
+        CREW_GH_VIEW="$viewfile" CREW_GH_COMMENTS="$commentsfile" \
         PATH="$tmp/bin:$PATH" bash "$sut" "$@" 2>&1)
   rc=$?
 }
@@ -487,6 +495,39 @@ if reported "$n8" 1 'lint takes' 'not both'; then
   if [ -s "$ghlog" ]; then fail "$n8" "the refusal still read the board: $(head -1 "$ghlog")"
   else pass "$n8"; fi
 fi
+
+# 15. The one command `/crew:work` step 1 and `/crew:plan` step 1 both open on. `--comments` does not add
+#     the comments to the view, it replaces the view with them, so the role label, the `Blocked by` line and
+#     `needs-refinement` — the three things those steps ask a lead to judge — were all absent from the
+#     output. `show` prints the item first and the comments after it, in one pass a reader scrolls.
+n9="show prints the item and its comments, in that order, not the comments alone"
+{
+  printf 'title:\tfix(tracker): show prints the item, not only its comments\n'
+  printf 'state:\tOPEN\n'
+  printf 'labels:\tbug, needs-refinement, role:agentic-ai-engineer\n'
+  printf 'comments:\t1\n'
+  printf -- '--\n'
+  printf 'Story: #7\n'
+  printf 'Blocked by: none\n\n'
+  printf '## TL;DR\n\nThe body a lead has to read before claiming anything.\n'
+} > "$viewfile"
+{
+  printf 'author:\tmike-echo-oscar-whiskey\n'
+  printf -- '--\n'
+  printf 'claimed-by: hanuman at 2026-10-01T08:12:24+02:00\n'
+} > "$commentsfile"
+run "$p" -- show 12
+if reported "$n9" 0 'title:' 'OPEN' 'needs-refinement' 'role:agentic-ai-engineer' \
+     'Story: #7' 'Blocked by: none' '## TL;DR' 'The body a lead has to read' 'claimed-by: hanuman'; then
+  bline=$(printf '%s\n' "$out" | grep -n 'Story: #7' | head -1 | cut -d: -f1)
+  cline=$(printf '%s\n' "$out" | grep -n 'claimed-by: hanuman' | head -1 | cut -d: -f1)
+  if [ "${bline:-0}" -ge "${cline:-0}" ]; then
+    fail "$n9" "the comments must follow the body: body at line ${bline:-none}, comment at ${cline:-none}"
+  elif grep -aqE 'issue (edit|comment|create)' "$ghlog"; then
+    fail "$n9" "show wrote to the board: $(grep -aE 'issue (edit|comment|create)' "$ghlog" | head -1)"
+  else pass "$n9"; fi
+fi
+: > "$viewfile"; : > "$commentsfile"
 
 if [ "$fails" -eq 0 ]; then echo "PASS"; exit 0; fi
 echo "FAIL ($fails)"; exit 1

@@ -469,7 +469,9 @@ status() {
     done
 }
 
-show() { "${GH[@]}" issue view "$1" --comments; }
+# `--comments` replaces the view with the comment stream rather than adding to it, so the title, the
+# labels, the state and the whole body need their own read: the item first, its comments after it.
+show() { "${GH[@]}" issue view "$1"; printf '\n--- comments ---\n\n'; "${GH[@]}" issue view "$1" --comments; }
 comment() { local n=$1; shift; local f=""; while [ $# -gt 0 ]; do case "$1" in --body-file) f=$2; shift 2;; *) exit 1;; esac; done; "${GH[@]}" issue comment "$n" --body-file "$f" >/dev/null; echo "commented on #$n"; }
 
 cmd=${1:-}; shift || true
