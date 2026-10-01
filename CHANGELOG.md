@@ -3,6 +3,109 @@
 Per release: what changed, what to do, and what happens to a project that changes nothing. Entries
 are appended, never rewritten — an entry describes the release it names, not the current tree.
 
+## 0.8.1 — 2026-10-01
+
+**The release that keeps a promise `0.7.0` published and did not keep.** `0.7.0` said the placeholder
+scan "already refuses" a bug whose role line is still the template's stub, and offered that sentence as
+one of the three reasons `bug create` takes no `--role` flag. It was false when published: `item-bug.md`
+writes `` Role: `<crew role>` `` inside a code span, and the scan stripped every code span before it looked
+for stubs, so of the sixteen stubs in that template the one naming an owner was the one it could never
+report. A bug could be filed with nobody owning it, and `lint` said nothing. This release makes the
+sentence true, and the correction `f6b898d` placed under the `0.7.0` entry now names this release instead
+of "after `0.8.0`". The other half of this release is a sentence the review and work steps owed story #2
+for three releases: a change is not recorded as reviewed until the named human has read it, and merge
+authority is not that reading.
+
+Patch, not minor — and the lead said patch first, which is the opposite of how `0.8.0` went, so the test
+is run again here rather than inherited. The test the last four releases used: a minor is a capability a
+consumer can now exercise that it could not — invoke, pass, file under, have fired — and `0.8.0` added
+that an existing command producing output it could not produce before counts when the documents had
+expressly said it would not. Here every document said the opposite. `0.7.0` promised the refusal, the
+scan fell short of it, and now it delivers it; nothing new can be invoked, passed or filed, and the
+contract the number guards has not moved, only the code that was short of it. The patch number tells an
+upgrader exactly that — the same rules, now enforced — where a minor would say there is something new
+to learn, and there is not.
+
+The case for a minor is real and worth stating. `f6b898d` changes what five existing commands answer:
+`story create`, `task create`, `bug create`, `tech-debt create` and `lint` all reach the same scan, and
+three of its answers move. A body `0.8.0` accepted is now refused (the span-wrapped stub); a body `0.8.0`
+could refuse by accident is now accepted (a stub quoted inside a fenced block); and a body carrying a
+backticked `<token>` standing alone in prose — `` `<div>` `` — is now refused as a stub, which it was not.
+That is more surprise than `0.7.2` carried. It does not survive the question of which of the three any
+document promised. The first is the kept promise. The second was written nowhere as a refusal, so no
+reader has an instruction to unlearn — it is a defect that stopped. The third is the one genuine
+narrowing, and it was promised neither way: `0.8.0`'s acceptance of it was a side effect of the same
+strip that hid the role stub, not a rule anyone could cite, and a body that hits it has a one-line route
+around it. Ruling that a patch may never move a `lint` verdict on an existing board would make every
+scan correction a minor, and the number would stop saying whether there is anything new to learn.
+
+The payload moved by two commits. `e7c5862` changes `plugins/crew/skills/review/SKILL.md` and
+`plugins/crew/skills/work/SKILL.md`; `f6b898d` changes `plugins/crew/scripts/tracker.sh`. The other four
+— `b4902e0`, `f352542` and `d6bfdfc` in `docs/design/`, `0bc1571` in `tests/` — and the README, test
+and changelog halves of the two above earn nothing by this repository's rule and ride along.
+
+### What changed
+
+- **A span holding nothing but a stub is a stub** (#41). `body_placeholders` strips code spans so that
+  a wrapped `` `<…>` `` and a real `List<string>` are not reported, and it kept doing that while
+  `item-bug.md` shipped its role as `` `<crew role>` `` — the one stub the strip removed before the scan
+  could see it. A span whose entire content is one `<…>` token is now unwrapped before the strip, and
+  only that: `` `<div> plus prose` `` is still prose, and `List<string>` is still a type. The refusal reads
+  `refused: unfilled template placeholder — <crew role>`, and because every kind's validator calls the
+  same scan, it comes from `story create`, `task create`, `bug create`, `tech-debt create` and `lint`
+  alike. The witness is "bug create refuses a body whose role line is still the template's stub", and
+  `plain_create`'s comment now says the no-`--role` reason holds only through this unwrap.
+- **A fenced block is read for nothing** (#41). Fences are dropped whole, line by line, before the span
+  strip runs. Under `0.8.0` a fence protected its contents only by accident: its three backticks were
+  fed to the span strip, where two cancelled and the third paired with the next backtick in the text, so
+  one stray backtick anywhere before the fence flipped the pairing and exposed the very lines the fence
+  was quoting — a bug report quoting a template stub verbatim could be refused for containing it. A
+  fence now quotes anything, stub included. An opener with no closer protects nothing: its lines are
+  handed back to the scan rather than dropped, so a single stray fence cannot switch the rest of the
+  body's scan off.
+- **The one new refusal: a bare backticked `<token>` in prose.** This is the cost of the first item.
+  `` `<div>` ``, `` `<T>` ``, any span that is exactly one angle-bracket token, is indistinguishable from a
+  shipped stub and is now refused as one. A body that means the literal token writes it inside a fence,
+  where nothing is read, or puts any other word beside it in the span.
+- **A change is not recorded as reviewed until the named human has read it** (#40). Story #2's third
+  criterion had two halves; the ceiling half (one round of agent review, a contested finding to the
+  user, the agent review a net under the human's) was stated and held by witnesses, and the *then* half
+  was in no sentence the plugin shipped. The review step now ends step 3 with it: that ceiling bounds
+  the agents, not the review, so what the lead posts in step 4 is evidence for the named human and
+  never the record that the change was reviewed. The work step reconciles step 7 with it:
+  `merge-authority:` answers who may merge and says nothing about who has read, so a lead merge
+  finishes the item and leaves the reading owed, the report says which of the two happened, and where
+  the named human merges the reading and the merge are one act. Neither state holds a merge — `done`
+  records the work, not the reading. The README's "Honest limits" says the same in the second person,
+  and the review-contract witness holds all three places plus the *believed* marking in the five files
+  that file or receive findings (53 → 62 cases).
+
+### What to do
+
+1. Install it: `claude plugin install crew@claude-crew`.
+2. **Run `scripts/tracker.sh lint --all` once.** A bug filed under `0.7.0`, `0.7.1`, `0.7.2` or `0.8.0`
+   with its role line still reading `` `<crew role>` `` passed every check then and is reported now, with
+   the line above. Edit that body so the role line names the role; nothing else about the item needs to
+   move. The same run names any body that carries a bare backticked `<token>` in prose.
+3. **A new body that wants a literal `<token>` puts it in a fence**, or beside another word in the span.
+   A template stub quoted verbatim — in a bug about the templates, say — goes in a fence too, and is
+   now safe there whatever backticks precede it.
+4. **Nothing to re-render and nothing for `--refresh` to offer.** No template, profile key, label, hook or
+   item section moved. The review and work steps read differently; the obligation they add is on the
+   named human and changes no command.
+
+### What happens if a project changes nothing
+
+1. **`lint` may report an item it passed yesterday.** That item was defective under the rule `0.7.0`
+   published — a bug nobody owns — and the report is the fix working. The `/crew:status` count of items
+   still matching the item shape, which comes from `lint --all --quiet`, moves by the same number.
+2. **One create that used to succeed can be refused**: a body with a span that is exactly one
+   angle-bracket token answers `refused: unfilled template placeholder — <token>`, exit 1, and creates
+   nothing, as every refusal does. The fence route needs no upgrade knowledge beyond this entry.
+3. **Everything else is identical.** No other command's output or exit code moves, no label, hook, item
+   section, profile key or template changes, and `--refresh` on any profile behaves exactly as it did
+   under `0.8.0`.
+
 ## 0.8.0 — 2026-10-01
 
 **The first release an already-configured project can receive a standard from.** Every release before
@@ -307,12 +410,12 @@ labels come from, and `tech-debt create` has nothing to file under until it has 
   fact with nothing holding the two equal. A board that wants `role:<r>` on one of these adds it with
   `gh issue edit --add-label`, which skips no check, because every check here is on the body.
 
-  > **Correction, filed as #41 and fixed after `0.8.0`.** One of those three reasons was not true when
+  > **Correction, filed as #41 and fixed in `0.8.1`.** One of those three reasons was not true when
   > this entry was published: the placeholder scan did *not* refuse an unfilled role. `item-bug.md`
   > writes the role inside a code span, and the scan strips code spans before it looks for stubs, so the
   > one stub naming an owner was the one stub it could never report — fifteen of that template's sixteen
   > were found and that one was not. A bug could be filed with its role still reading `<crew role>` and
-  > nothing said so. The sentence holds from the release that fixes #41 onwards, and the decision it was
+  > nothing said so. The sentence holds from `0.8.1` onwards, and the decision it was
   > offered in support of stands on the other two reasons, which never depended on it: no command reads a
   > role label off a bug or tech-debt row, and a flag would write a second copy of a fact with nothing
   > holding the two equal.
