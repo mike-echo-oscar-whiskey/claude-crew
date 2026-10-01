@@ -1,9 +1,11 @@
 # ♻️ refactor(crew): the backlog is authored as data in the repository, and every item's body on the tracker is rendered from it
 
-Architect, 2026-09-30; amended 2026-10-01 for four decisions Kris took that day (§10). Status:
+Architect, 2026-09-30; amended 2026-10-01 for four decisions Kris took that day (§10), and
+re-ruled later that day on the data format after he lifted a constraint D16 and D17 had leaned on
+(§11 — the shape did not change). Status:
 **proposed** — design only; no release is reserved for it, and the task list is not part of this
-document (it is registered on the tracker once approved). Sections are numbered §1–§10 so tasks can
-cite them; the ten questions the brief put, and the four decisions of 2026-10-01, are mapped to
+document (it is registered on the tracker once approved). Sections are numbered §1–§11 so tasks can
+cite them; the ten questions the brief put, and the decisions of 2026-10-01, are mapped to
 decisions at the end. The file was `item-data.md` until 2026-10-01: that name described stripping
 bodies, which §10 reverses, and its owner did not recognise it as his own idea.
 
@@ -69,7 +71,9 @@ says what a person does instead. Multi-line prose still never sits inside JSON (
 
 Constraints that bind every decision below: `jq` and `python3` (3.9 or later, standard library
 only — D16) are the only data dependencies a consumer has, and `jq` is on every profile's `gates:`
-line already; boards filed under 0.6.0 keep working unchanged; there is no CI, so a consumer's
+line already (since 2026-10-01 this is a choice, not a constraint: Kris permitted a `yq`
+dependency, and D20 keeps `jq` and `python3` alone on the merits); boards filed under 0.6.0 keep
+working unchanged; there is no CI, so a consumer's
 `scripts/local-gates.sh` and the plugin's own commands are the only enforcement points;
 `tracker.sh` stays the adapter boundary and the schema encodes nothing GitHub-shaped.
 
@@ -560,6 +564,16 @@ renumbered.
 | D14: a tech-debt item changes in nothing | it gets a file carrying `foundIn` and `since` (D19) |
 | "Deliberately not done": a computed Proof map | rendered from `criteria` and the tasks' `proves` (D15, D19) |
 
+Later on 2026-10-01 Kris lifted the constraint D16 and D17 had partly rested on — a `yq`
+dependency is permitted. §11 re-rules the format with it lifted; no decision's substance moves,
+two decisions' grounds do.
+
+| 2026-10-01, under the dependency constraint | Under §11 |
+|---|---|
+| D17's criterion "what is on the machine", and "`pyyaml` is the dependency D16 refuses" as the reason YAML is out | withdrawn as grounds; JSON and two files stand on D20's three reasons |
+| D16's install-failure ground for foreclosing `yq` | withdrawn by Kris; `yq` stays out because it has no job and names two programs (D20); the stdlib rule for Python stands on its own ground |
+| the "Constraints that bind" paragraph: `jq` and `python3` as the only data dependencies | a choice, not a constraint (D20) |
+
 ## §9 — What this design does not improve
 
 It makes shape deterministic and counts honest. It does not make a TL;DR clear, a criterion one
@@ -575,7 +589,9 @@ hunk a reviewer reads.
 - A template language. A template renders nothing but its headings (D15); loops, conditionals and
   substitution tokens in a Markdown template would be a second program a project override could
   break, and the data sections they would express are the adapter's.
-- A declared Python dependency, a venv, or a YAML/JSON-Schema library (D16); `yq`, `ajv`.
+- A declared Python dependency, a venv, or a YAML/JSON-Schema library (D16); `ajv`; `yq` — since
+  2026-10-01 not because it is a dependency, which Kris permitted, but because the format gives it
+  no job and the name is two programs (D20).
 - Conflict detection beyond the diff: `lint` shows that the page differs from the render and
   `sync` prints what it overwrote; neither keeps a last-rendered copy or a timestamp (D8).
 - A comment on the issue carrying a link to the file: the number is the path, and the footer says so.
@@ -633,6 +649,7 @@ hunk a reviewer reads.
 | 4 agents keeping a backlog true | D19: the three-command loop, a file for every kind, a total projection |
 | the lead's gap: the template is code | D18: versioned by the release; re-render in bulk; a heading change migrates through `/crew:conform` |
 | the lead's question: does D12 survive | yes, amended: `/crew:conform` imports, the first `sync` replaces the body with approval |
+| later that day: "it is okay if the plugin has a dependency on yq" | D20: re-ruled on the merits — JSON and two files stand, `yq` gets no job, no task changes shape |
 
 ## §10 — The body is rendered output, the schema is a file, and agents keep the backlog true (Kris, 2026-10-01)
 
@@ -768,6 +785,12 @@ file and the `legacy:` bodies for the window.
 `additionalProperties: false`; a declared Python dependency; a second validator in the plugin (the
 `jq` program of D3); `yq`, `ajv`, `pip`; a `backlog.py` that calls `gh` or `git`.
 
+*Amended 2026-10-01, later (D20):* the install-failure argument above is no longer what keeps
+`yq` out — Kris withdrew that objection for `yq` specifically, and D20 keeps `yq` out because the
+format gives it no job and the name is two programs. The standard-library rule for Python stands
+unchanged: what was permitted is `yq`, not a declared Python dependency, and `pyyaml` and
+`jsonschema` remain foreclosed on this decision's own ground. Nothing else in this decision moves.
+
 ### D17 — JSON for the data, a sibling Markdown file for the prose, both under `.claude/crew/backlog/<id>.*`
 
 Kris: "I do not care if it is json/yaml or the next popular format." Chosen on two criteria — prose
@@ -791,6 +814,12 @@ task titles from files alone.
 
 *Forecloses:* YAML or TOML on disk; prose inside JSON; a front-matter single file; a data file
 under `.claude/crew/items/`; a `--title` flag.
+
+*Amended 2026-10-01, later (D20):* re-ruled with the dependency objection withdrawn. "What is on
+the machine" is no longer a criterion and "`pyyaml` is the dependency D16 refuses" is no longer
+the reason YAML is out; D20 gives the grounds that hold now, and on them JSON, the sibling
+Markdown file and `backlog/` all stand unchanged. The one-file shapes this decision dismissed in a
+clause — prose in block scalars, a front-matter file — are weighed there in full.
 
 ### D18 — Templates are versioned by the plugin release; a heading change migrates the record through `/crew:conform`, any other change is a re-render
 
@@ -847,3 +876,75 @@ an agent updating many items correctly, and that fixes the shape:
 
 *Forecloses:* a maintenance step that edits a body by hand; a kind without a file; a per-item
 prompt in a bulk command; a fact that exists on the tracker and not in a file.
+
+## §11 — The format, re-ruled with the dependency constraint lifted (2026-10-01, later)
+
+### D20 — With a `yq` dependency permitted, JSON and two files stand on the merits, and `yq` gets no job
+
+Kris, 2026-10-01, after the lead had argued the dependency case twice: "it is okay if the plugin
+has a dependency on yq." The objection is withdrawn and is not re-argued here. D17 chose JSON
+partly on "what is on the machine" and D16 foreclosed `yq` on the install-failure ground; both are
+re-ruled below with that ground gone. The shape survives it.
+
+**The data stays JSON — a choice, not a leftover.** Three reasons, none of them the dependency.
+
+1. *There is nothing left for YAML to carry.* The data file is ten scalar keys and two arrays of
+   short records (D3's table plus D17's `title` and D19's per-kind keys); every paragraph is in
+   `<id>.md`. What YAML has that JSON lacks — block scalars, anchors, comments, unquoted strings —
+   has no reader here: a program writes the file (`plan`, `/crew:conform`, `jq` in a bulk edit of
+   D19's loop), a schema validates it, and an agent edits it by expression.
+2. *YAML's implicit typing mistypes this schema's own values unless they are quoted.* Witnessed
+   with PyYAML 6.0.3, the parser the `yq` of `apt` and `pacman` wraps: `story: 2` is read as an
+   integer, `blockedBy: [6]` as integers, `since: 2026-09-30` as a date, `exception: no` as
+   `false`. D2 made ids strings, D19 made `since` a string, `exception` is a string — so every id
+   written the natural way would be refused by the validator as the wrong type, the refusal class
+   this design exists to end. And the other `yq` parses YAML 1.2, which resolves `no` and a bare
+   date differently, so one file would be valid on one machine and refused on another. JSON has one
+   way to write `"2"`.
+3. *`yq` is two unrelated programs under one name, and the package managers disagree about which
+   one the name installs.* `apt install yq` (Debian unstable 3.4.3) and `pacman -S yq` (Arch 4.1.2)
+   install kislyuk's wrapper — a Python package over `jq` and PyYAML that forwards jq's own
+   arguments; `brew install yq` installs mikefarah's Go processor (4.54.1) — its own expression
+   language, `-o=json`, `--front-matter`. mikefarah's is `go-yq` on Arch and kislyuk's is
+   `python-yq` on Homebrew. A design that names `yq` must name which, carry an install line per
+   platform, and detect the other at startup by its `--version` text, and D7's gate snippet would
+   need two forms (`--argjson` exists in one and not the other). That is more machinery than a file
+   with no YAML in it can justify. Were one ever needed it would be mikefarah's: kislyuk's is
+   PyYAML by another name, the dependency D16 refuses on its own ground. Neither was on the
+   architect's machine at ruling time (`command -v yq`: exit 127).
+
+**Two files stand; one file with the prose in block scalars is refused.** The real gain of one
+file is one path per item and an atomic D5 step 3 — one `mv` instead of two. Against it: the prose
+file's schema is the template's heading set (D16), and D18 migrates the record by heading; inside a
+block scalar the `## ` headings are text within a string, so the heading validator would parse
+Markdown out of YAML — the same check with a decoding step and indentation rules in front of it.
+The prose carries numbered tests, fenced snippets and nested lists (`## Tests (RED first)`,
+`## Done when`); under a block scalar every one of those lines is indented, and the chomping
+indicator (`|`, `|-`, `|+`) with the indentation indicator decides what its trailing newline is —
+the several-ways problem applied to prose rather than to data. GitHub renders `8.md` as Markdown in
+a PR and an editor treats it as Markdown; neither does so inside a YAML string, and a reflowed
+paragraph diffs as indented YAML lines. The half-written case the atomic step would close is
+already refused loudly: "a `.json` without its `.md`, or the reverse, is refused" (D17), and a
+failed step 3 prints its one repair (D5).
+
+The better one-file shape, named so it is not re-raised: Markdown with a YAML front-matter block,
+which mikefarah's `yq --front-matter=extract` reads without the extraction step D17 refused it
+for. It is refused for reasons 2 and 3 — the front matter is YAML, and the flag is one
+implementation's — and because D7's consumer gate would then read the file with that one `yq`
+instead of with the `jq` every `gates:` line already has.
+
+**Had the format moved, the validator pipeline would have been** `yq -o=json . <id>.yaml |
+python3 backlog.py validate -` (mikefarah) or `yq . <id>.yaml | …` (kislyuk): one dependency
+serving the adapter and the validator, D16's standard-library rule intact. What breaks is not that
+file but its siblings: the story render and the `proves` cross-check read other items' files (D15,
+D19), so `backlog.py` would either run `yq` per sibling — a subprocess its "inputs are files"
+shape does not have — or take a pre-converted stream from the adapter; and reason 2's refusals
+arrive before Python sees a byte. Recorded so it is not re-derived; not needed, since the format
+does not move.
+
+Nothing registered changes: D2, D5, D7, D12, D15, D16, D17 and D19 keep their paths, extensions,
+flags and checks, so no task's files or `## Done when` line moves.
+
+*Forecloses:* YAML or TOML on disk, a front-matter file, prose in a block scalar, `yq` in the
+plugin or in D7's gate snippet — each on the grounds above, none on the dependency ground Kris
+withdrew, which this decision does not reinstate.
