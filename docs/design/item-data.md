@@ -4,6 +4,11 @@ Architect, 2026-09-30. Status: **proposed** — design only; no release is reser
 task list is not part of this document. Sections are numbered §1–§9 so tasks can cite them; the ten
 questions the brief put are mapped to decisions at the end.
 
+Every `tracker.sh` line citation below was re-derived on 2026-10-01 against
+`plugins/crew/scripts/tracker.sh` at `7d9d635` (`0.8.0`), after five releases had shipped under this
+document and moved all eight of them; a citation is only as good as the commit it names, so that
+commit is named. D14 was added the same day, for the reason it states.
+
 ## Problem
 
 Four things went wrong under 0.6.0, all countable, all in this repository's own history or the
@@ -11,9 +16,10 @@ consuming project's board.
 
 - **A task lost its own story.** Task #4's body was rewritten by an agent during its round and came
   back without its `Story: #1` and `Blocked by: #3` lines. The board rolls a task up under its story by
-  `select(.body | startswith("Story: #" + n))` (`plugins/crew/scripts/tracker.sh:462`) and lists it as
-  claimable by `grep -oE '^Story: #[0-9]+'` (`:452`), so the task that existed to make that first line a
-  checked contract was, for a while, invisible to the story it belonged to.
+  `select(.body | startswith("Story: #" + n))` (`plugins/crew/scripts/tracker.sh:565`) and lists it as
+  claimable by the same first-line parse (`story_of_body`, `:180`, called by `next` at `:552`), so the
+  task that existed to make that first line a checked contract was, for a while, invisible to the story
+  it belonged to.
 - **Eighteen of 209 tasks were absent from a board with no error anywhere.** On the consuming
   project's tracker, 18 task bodies do not begin with the rollup line. `status()` and `next()` match
   prose; a body that starts otherwise is not wrong, it is gone. 0.6.0 made `task create` refuse such a
@@ -25,12 +31,12 @@ consuming project's board.
   says 6` would stop being a lint refusal. `gh issue view 8` shows the result: nine bullets, three of
   them ending "Added in review", and a `Size:` that reads `9` because a person retyped it.
 - **The validator is a parser for a data format written in English.** `validate_task_body`
-  (`tracker.sh:164-223`) reads `Size:` with a five-clause regular expression over a prose line
-  (`:181`), counts files by counting Markdown bullets under a heading (`files_hand_written`,
-  `:107-121`), reads the story number out of the first line (`:342`), and finds blockers with
-  `grep -oE '#[0-9]+'` over a `Blocked by:` line (`:439`). Every one of those is a fact — a number, a
-  reference, a list of paths — stored as a sentence, and every check is a comparison between two
-  sentences that must agree.
+  (`tracker.sh:184-243`) reads `Size:` with a five-clause regular expression over a prose line
+  (`:201`), counts files by counting Markdown bullets under a heading (`files_hand_written`,
+  `:115-129`), reads the story number out of the first line (`:190`, parsed by `story_of_body`,
+  `:180`), and finds blockers with `grep -oE '#[0-9]+'` over a `Blocked by:` line (`blockers_open`,
+  `:539`). Every one of those is a fact — a number, a reference, a list of paths — stored as a
+  sentence, and every check is a comparison between two sentences that must agree.
 
 The board's own typed fields go unused: on the consuming project, 0 of 209 tasks carry a `parent` and
 0 carry a `blockedBy` relation (`gh issue list --json parent,blockedBy`, 2026-09-30), while every one
@@ -99,6 +105,45 @@ is a **string**, as the tracker prints it without its sigil — `8.json` here, `
 backend — because an integer id would encode two of the three backends into the schema.
 
 *Forecloses:* a second root beside `.claude/crew/`; a `number` field; an integer item id.
+
+### D14 — A bug's role leaves its first line for the file; a tech-debt item changes in nothing
+
+*Added 2026-10-01, and the only decision added after the two reviews.* `0.7.0` shipped
+`tracker.sh bug create` and `tech-debt create` after this document was written, so the two plain kinds
+acquired a create contract D1 and D10 had assumed they were simply replacing. §8 listed `0.6.0`
+decisions only and therefore retired nothing for them; that is what this decision answers.
+
+A bug's role is the body's first line today (`templates/item-bug.md`: ``Role: `<crew role>` · design:
+… · found …``), and nothing reads it. `validate_plain_body` (`tracker.sh:299-305`) judges template
+sections and surviving placeholders and has no header contract at all; the role token sits inside
+backticks, which the placeholder scan strips before it looks (`body_placeholders`, `:107-113`), so the
+neighbouring `<none, or the doc>` and `<where and when>` are what refuse that line unfilled.
+`plain_create` (`:315-330`) takes no `--role`, and the adapter puts no `role:<r>` label on a bug, on
+the stated ground that a flag would write "a second copy of a fact the body states, with nothing
+holding the two equal".
+
+Under this design a bug's role is in the file exactly as a task's is (D1), its body starts at
+`## TL;DR` with no header lines (D1, D10), and the adapter writes the `role:<r>` label from the file
+at create as it does for a task (D5). That answers `0.7.0`'s reason rather than overruling it: the
+flag was refused for want of a comparator, and the comparator now exists — `lint` reports label
+against file and `sync` repairs the label from the file (D8), so the second copy is held equal by the
+same machinery that holds `story` and `blockedBy` equal. `bug create` gains `--data-file` on the terms
+D12's table already states, and a bug with a file is judged as D9 says.
+
+A tech-debt item changes in nothing, and that is the second half of the answer. It names no role,
+carries no `Size:` line and no `## Files` list, gets no data file (D1), and its first line
+(`Found in: … · pre-existing since …`) is prose a person reads rather than a fact a program parses —
+so there is nothing in it for D10 to retire. `validate_plain_body` keeps its no-header shape for that
+kind. The design covers tasks, stories and bugs; `tech-debt` is the one kind it leaves alone entirely.
+
+This corrects a reason in D1 and not its decision. "Leaving bugs on prose would keep the `Size:` regex
+alive for one kind" reads as though a bug's `Size:` line is parsed today; no arm of
+`validate_plain_body` reads it. What leaving bugs on prose really keeps alive is a number a person
+types that nothing ever checks — the same defect one degree worse, so the decision stands.
+
+*Forecloses:* a `--role` flag on `bug create`; a bug whose role stays on a header line while its other
+facts move to the file; a data file for a tech-debt item; a separate validator shape for a bug with a
+file; a `role:<r>` label written on a bug by anything but the adapter from the file.
 
 ## §2 — The schema
 
@@ -226,7 +271,7 @@ the PR is opened so a projection is never stale for longer than one task.
 ### D6 — The adapter stops appending the `## Tasks` checklist to a story on a backend that renders sub-issues
 
 `task_create()` today reads the story body, appends `- [ ] #n (role) title` under `## Tasks` and
-writes the **whole body back** (`tracker.sh:312-315`). That is a body rewrite of a document a person
+writes the **whole body back** (`tracker.sh:349-352`). That is a body rewrite of a document a person
 may be editing on the tracker at that moment, and the one place in the adapter where the prose-clobber
 this design exists to end is built in. With `parent` set (D4), GitHub renders the sub-issue list and
 its progress on the story itself, so the checklist is a third copy of a fact the tracker now holds
@@ -418,6 +463,14 @@ search that returns nothing afterwards, as `agents/architect.md` requires.
 | `task_create` appending the story checklist | retired on github (D6) |
 | `--story --role --blocked-by` on `task create` | retired; `--data-file` (D5) |
 | `status`/`next` prose matches | fallbacks for one minor release only (D12) |
+
+`0.7.0` landed after this document was written and set two contracts of its own for the plain kinds.
+They are answered in D14, which also records that `tech-debt` is superseded in nothing.
+
+| 0.7.0 | Under this design |
+|---|---|
+| `item-bug.md`'s first line carrying the role, held only by its neighbouring placeholders | retired for a bug with a file: the role is in the data and the body starts at `## TL;DR` (D1, D10, D14) |
+| `bug create` takes no `--role`, and no `role:<r>` label reaches a bug | `--data-file`, and the adapter writes the label from the file as it does for a task (D5, D8, D14) |
 
 ## §9 — What this design does not improve
 
