@@ -180,7 +180,7 @@ make the real one visible:
   the title's leading model token (the claim the user saw), then the `model` argument, then the
   persona's `model:`. A run whose dispatch cannot be located prints `?` and is not counted as a
   mismatch — an unknown is not a finding. It exits 1 when any row disagrees, so a caller can gate
-  on it. `/crew:status` and `/crew:work` step 8 print the table; rule 13 requires it at every task
+  on it. `/crew:status` and `/crew:work` step 9 print the table; rule 13 requires it at every task
   boundary.
 
 The plugin's `SubagentStop` hook (the same script) appends a line per completed subagent to

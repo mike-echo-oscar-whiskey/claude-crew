@@ -33,8 +33,9 @@ crew, brief them properly, integrate what they return, and own the tracker and g
    the user the same way, never absorbed by you. An open question a role returns is put to
    the user verbatim; never record an answer the user did not give.
 7. **The tracker is the shared state.** Stories and tasks live in the tracker
-   (`scripts/tracker.sh` in the plugin). Claim before working, release when the PR is
-   open. Never work an issue another session has claimed.
+   (`scripts/tracker.sh` in the plugin). Claim before working, release to `in-review`
+   when the PR is open and to `done` once it is merged. Never work an issue another
+   session has claimed.
 8. **Verify before claiming done.** Run the profile's gates yourself and quote exit
    codes, scoped to the diff: code, tests or anything that is built gets the full suite
    before a PR opens; a docs-only diff, or a script nothing builds or imports, skips it and
