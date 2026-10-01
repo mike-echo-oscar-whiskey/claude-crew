@@ -3,11 +3,14 @@
 Per release: what changed, what to do, and what happens to a project that changes nothing. Entries
 are appended, never rewritten — an entry describes the release it names, not the current tree.
 
-## Unreleased
+## 0.6.1 — 2026-10-01
 
-On `master` after the `0.6.0` tag and in no release yet. Both entries below are fixes to things
-`0.6.0` shipped or described; the release commit that gives this heading a version and a date is what
-bumps the manifests.
+Patch, not minor: nothing is added. Every change below is a fix to behaviour `0.6.0` already
+described — one report sentence that was untrue, and three reads that passed a partial board off as
+the whole one. No command, flag, profile key, label or item section is new, and no output that was
+already correct changes shape. The one thing a caller could trip over is `lint`'s new exit 2, and it
+fires only where `0.6.0` returned a `0` it had not earned; "What happens if a project changes
+nothing" says what that means for a script written around it.
 
 ### What changed
 
@@ -21,24 +24,68 @@ bumps the manifests.
   **This retracts `0.6.0`'s "Honest limits" note about the 500 cap**: a reader told there to treat
   `lint`'s count as a lower bound until this was fixed no longer has to, because the count now says
   for itself when it is one.
+- **`next` and `status` say when a fetch filled its limit instead of passing a partial board off as
+  the whole one** (#16). The three fetches behind them — open tasks, tasks of every state, open
+  stories — capped at 200, 500 and 100 and said nothing when a label held more, so a large board could
+  keep a claimable task out of `/crew:next` and drop a story off `/crew:status` with no sign at all.
+  All three now share the same 2000-item cap, and a fetch that comes back exactly full warns on
+  **stderr**, naming which of the three filled and what it costs the reader. **stdout and the exit
+  code are unchanged, deliberately**: unlike `lint`, these two are not reporters — every row they
+  print is real and claimable, so a filled fetch makes the output incomplete rather than wrong, and a
+  non-zero exit would have `/crew:next --auto` read "there is more" as "this failed" and refuse work
+  that is genuinely there.
 - **The setup report and the three resolution lines no longer promise that a project's own item shape
   wins whole** (#15). `0.6.0` described an override as deciding the whole shape. It decides the
   required sections; the `Story: #<n>` first line and the `Blocked by:`, `Role:` and `Size:` lines are
   checked against the adapter's own rules whatever the override contains, because the board's rollup
   reads them. A project that believed the sentence and dropped `Size:` had every task creation refused
   with nothing explaining why. The enforcement was right, so only the wording changed — in
-  `/crew:init`'s report and in `/crew:conform`, `/crew:plan` and `/crew:refine`.
+  `/crew:init`'s report and in `/crew:conform`, `/crew:plan` and `/crew:refine`, and in
+  `templates/item-task.md`'s own header comment, which had named only the `Story:` line.
+- **The three hook commands are quoted** (#15). `hooks/hooks.json` interpolated
+  `${CLAUDE_PLUGIN_ROOT}` unquoted in all three entries, which printed three warnings on every
+  `claude plugin validate` run and exits 127 from an install whose plugin root contains a space.
+- **Both caps are witnessed.** `scripts/tests/tracker.test.sh` now asserts the limit each fetch hands
+  `gh` — the stub truncates to it, so a call hard-coded to the wrong number cannot stay green — that
+  saturation reaches `lint`'s closing line with exit 2 and `next`'s and `status`'s stderr with exit 0
+  and rows alone on stdout, that a warning fires for the fetch that actually filled and not for its
+  siblings, and that a non-numeric cap falls back to 2000 instead of switching the comparison off in
+  silence. Still four witnesses, all on the `test:` and `gates:` lines of **this repository's own**
+  `.claude/crew/profile.md`; nothing is asked of your profile.
 
 ### What to do
 
-Nothing. Both are corrections: no profile key, no label, no command and no item body changes.
+1. Install it: `claude plugin install crew@claude-crew`.
+2. If `/crew:init` rendered `.github/ISSUE_TEMPLATE/` for you, re-run `/crew:init --refresh`. This is
+   the one action an upgrading project needs, and the easiest to miss: those files carry the version
+   they were rendered from, so `/crew:status` prints `issue templates: rendered from crew 0.6.0,
+   installed is 0.6.1 (/crew:init --refresh)` under the board until you do — and the refresh is also
+   how the corrected `item-task.md` header reaches the copy a human files through. A project that
+   declined that render, or that has taken those files over, has nothing to do.
+
+Nothing else: no profile key, no label, no command and no item body changes. A project whose own
+`.claude/crew/items/task.md` dropped `Blocked by:`, `Role:` or `Size:` on `0.6.0`'s wording does still
+have to put those three lines back, but that is a `0.6.0` refusal this release only stops
+mis-describing, not a new requirement.
 
 ### What happens if a project changes nothing
 
-`lint`'s exit code gains the value 2, so a project that put `lint` behind something reading its exit
-code should know 2 means "read incompletely" rather than "items failed". Nothing in this plugin does:
-the `gates:` line deliberately carries no `lint`, and every other consumer is prose a human or an
-agent reads.
+Three things, and nothing else:
+
+1. **`lint`'s exit code gains the value 2**, so a project that put `lint` behind something reading its
+   exit code should know 2 means "read incompletely" rather than "items failed". It fires only on a
+   board holding 2000 or more items of one kind — which is precisely where `0.6.0` exited 0 over items
+   it had never read, so a wrapper that trusted that 0 was already being told the wrong thing.
+   Nothing in this plugin reads it: the `gates:` line deliberately carries no `lint`, and every other
+   consumer is prose a human or an agent reads.
+2. **`next` and `status` may write one line to stderr.** Their stdout and their exit 0 are what they
+   were, so anything parsing the rows is untouched; a caller that folds stderr into stdout with
+   `2>&1` sees the warning among them.
+3. **`/crew:status` prints the issue-template version line** above until the render is refreshed or
+   removed. It is a string compare of two versions and says nothing about the bodies.
+
+There is no migration tooling past that one optional re-render, no version negotiation and no
+compatibility matrix.
 
 ## 0.6.0 — 2026-10-01
 
