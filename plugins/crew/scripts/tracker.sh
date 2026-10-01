@@ -169,6 +169,18 @@ verdict() { # 0 when the body conforms; otherwise every failing check on stderr,
   return 1
 }
 
+# The one place a task's story number is read, and the one shape that reading may take: the FIRST line,
+# whole, or nothing. `next` carried its own grep eight lines from this regex, matching every line that merely
+# BEGAN with the reference — so each one contributed, and a body mentioning its story again lower down
+# yielded two numbers, handed the row's `printf` an argument too many and broke the record in half (#30).
+# One regex in two call sites is how that bug existed; the two hold one function now. The anchors are the
+# contract: the line must BE the reference and nothing else, so `Story: #676 · design …` is not one wherever
+# it sits. A first line that is not a reference reads as "" — the answer both call sites have always given
+# for it, `lint` naming the shape in its refusal and `next` printing `#?` and the row.
+story_of_body() { # <task body on stdin> -> its story number, or "" when the first line is not a story reference
+  sed -nE "1s/^Story:[[:space:]]*$SIGIL?([0-9]+)[[:space:]]*\$/\\1/p"
+}
+
 validate_task_body() { # <assembled body file> <story as given>
   local f=$1 num=${2//[!0-9]/} first key size h="" t="" sec nf nt ph line
   REFUSALS=()
@@ -403,7 +415,7 @@ lint_line() { # <number> <kind> <what is wrong> -> the report's one line for an 
 lint_body() { # <kind> <number> <body file> -> 0 when it conforms, 1 with its line printed when it does not
   local kind=$1 n=$2 f=$3 num line joined=""
   case "$kind" in
-    task)  num=$(sed -nE "1s/^Story:[[:space:]]*$SIGIL?([0-9]+)[[:space:]]*\$/\\1/p" "$f")
+    task)  num=$(story_of_body < "$f")
            validate_task_body "$f" "$num" 2>/dev/null || true ;;
     story) validate_story_body "$f" on-board 2>/dev/null || true ;;
     *)     validate_plain_body "$kind" "$f" 2>/dev/null || true ;;
@@ -537,7 +549,7 @@ next() {
       n=$(jq -r .number <<<"$row"); body=$(jq -r .body <<<"$row")
       [ "$(blockers_open "$body")" = "0" ] || continue
       role=$(jq -r '[.labels[].name | select(startswith("role:"))][0] // "-"' <<<"$row")
-      story=$(grep -oE '^Story: #[0-9]+' <<<"$body" | grep -oE '[0-9]+' || true)
+      story=$(story_of_body <<<"$body")
       printf '#%s\t%s\tstory #%s\t%s\n' "$n" "$role" "${story:-?}" "$(jq -r .title <<<"$row")"
     done
   # After the rows, because it qualifies them: the rows above are claimable, there are simply more.

@@ -1022,5 +1022,43 @@ refused_q "$n_plainph" 'refused: unfilled template placeholder' \
   '<The event that turns this into a story' 'A debt item with no trigger is never picked up.>' || plainph_ok=0
 if [ "$plainph_ok" = 1 ]; then pass "$n_plainph"; fi
 
+# 32. #30 — `next` read a task's story with an unanchored `grep -oE '^Story: #[0-9]+'`, so EVERY matching
+#     line in the body contributed a number: a body carrying `Story: #1` as its first line and
+#     `Story: #676 · design …` lower down handed the `printf` one argument too many and the record broke
+#     across two lines. Appended rather than placed beside the other `next` cases so no comment block above
+#     is renumbered for it. Two arms, because the parse answers two questions and only one of them is the
+#     bug: the first line names the story, or nothing does. Line counting is the assertion a substring test
+#     cannot make — a broken row carries every substring an intact one does, on two lines — and the anchored
+#     `^#1<tab>-<tab>story #1<tab>` proves the fields are in one record with a title still behind them.
+#     Role reads `-` and the title `null` because `list_json` cans neither, which is what every `next` case
+#     above already runs against.
+n_story="next reads a task's story from the first line only, so a body naming it twice prints one whole row"
+twice=$(board_task L9 'Size: 2 hand-written files (+ 0 generated) · 1 RED tests · one PR' 2 1 'Split line: n/a')
+sed -i '3i Story: #676 · design `docs/design/crew-0.6.0-items-and-proof.md` §3' "$twice"
+list_json task "1:$twice"
+run "$p" -- next
+if [ "$rc" -ne 0 ]; then fail "$n_story" "expected exit 0 from next, got $rc; output: ${out:-empty}"
+elif [ "$(printf '%s\n' "$out" | wc -l)" -ne 1 ]; then
+  fail "$n_story" "the row broke across lines: $(printf '%s' "$out" | tr '\n' '|')"
+elif ! printf '%s\n' "$out" | grep -q $'^#1\t-\tstory #1\t'; then
+  fail "$n_story" "the row is not the whole record its first line's story names: $out"
+elif printf '%s\n' "$out" | grep -q '676'; then
+  fail "$n_story" "a story line below the first contributed a second number: $out"
+else
+  # The preserved half: a body whose first line is not a story reference contributes nothing, and the row
+  # still prints — `story #?`, never the number a deeper line happens to mention. `task_body` opens on
+  # `Role:`, so the first line is a non-reference by construction rather than by deletion.
+  nostory=$(task_body L10 'Size: 2 hand-written files (+ 0 generated) · 1 RED tests · one PR' 2 1 'Split line: n/a')
+  sed -i '2i Story: #676 · design `docs/design/crew-0.6.0-items-and-proof.md` §3' "$nostory"
+  list_json task "2:$nostory"
+  run "$p" -- next
+  if [ "$rc" -ne 0 ]; then fail "$n_story" "expected exit 0 from next, got $rc; output: ${out:-empty}"
+  elif [ "$(printf '%s\n' "$out" | wc -l)" -ne 1 ]; then
+    fail "$n_story" "a task with no story reference on its first line lost its row: $(printf '%s' "$out" | tr '\n' '|')"
+  elif ! printf '%s\n' "$out" | grep -q $'^#2\t-\tstory #?\t'; then
+    fail "$n_story" "a first line that is not a story reference must read as #?, got: $out"
+  else pass "$n_story"; fi
+fi
+
 if [ "$fails" -eq 0 ]; then echo "PASS"; exit 0; fi
 echo "FAIL ($fails)"; exit 1
