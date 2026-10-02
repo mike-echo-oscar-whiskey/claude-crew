@@ -14,6 +14,7 @@
 #   tracker.sh status                 (stories with task progress)
 #   tracker.sh show N                 (issue + comments)
 #   tracker.sh comment N --body-file F
+#   tracker.sh conformed N            (read-only: 0 conformed since the last body edit, 1 not, 2 cannot decide; one line)
 set -euo pipefail
 . "$(dirname "$0")/common.sh"
 command -v gh >/dev/null || { echo "needs gh (GitHub CLI)" >&2; exit 1; }
@@ -665,6 +666,53 @@ status() {
 show() { "${GH[@]}" issue view "$1"; printf '\n--- comments ---\n\n'; "${GH[@]}" issue view "$1" --comments; }
 comment() { local n=$1; shift; local f=""; while [ $# -gt 0 ]; do case "$1" in --body-file) f=$2; shift 2;; *) exit 1;; esac; done; "${GH[@]}" issue comment "$n" --body-file "$f" >/dev/null; echo "commented on #$n"; }
 
+# ---- conformed: has /crew:conform run on this story since anything in it last changed? -------------------
+# `/crew:conform` leaves one comment on the story whose first line is `crew:conform <ISO date> <short sha>`.
+# The story counts as conformed while that comment is newer than the latest BODY edit of the story and of
+# every task its `## Tasks` lists. The body's own edit time is GraphQL `lastEditedAt` (null until the first
+# edit, so `createdAt` stands in), which `gh issue view --json` does not offer. `updatedAt` is not it: GitHub
+# moves it on every comment, label and close, the marker itself included, so it would never say "conformed".
+# The marker is read from the story's last 100 comments; one buried deeper reads as absent, which costs one
+# advisory line and never a refusal. Read-only by construction: no write of any kind.
+CONFORM_MARKER='^crew:conform [0-9]{4}-[0-9]{2}-[0-9]{2}'
+issue_gql() { # <n> -> the issue's number, kind labels, body, both timestamps and last 100 comments, or non-zero
+  gh api graphql -F owner="${REPO%%/*}" -F name="${REPO#*/}" -F number="$1" -f query='
+    query($owner: String!, $name: String!, $number: Int!) { repository(owner: $owner, name: $name) {
+      issue(number: $number) { number body createdAt lastEditedAt labels(first: 50) { nodes { name } }
+        comments(last: 100) { nodes { body createdAt } } } } }' 2>/dev/null \
+  | jq -ce '.data.repository.issue // empty'
+}
+conformed() {
+  local n=${1:-}; n=${n#"$SIGIL"}
+  [ $# -eq 1 ] && [[ $n =~ ^[0-9]+$ ]] || { echo "conformed takes one item number" >&2; exit 1; }
+  local undecided="conform state of $SIGIL$n not checked"
+  local item story s kind latest marker t tj e
+  item=$(issue_gql "$n") || { echo "$undecided — the tracker did not answer for $SIGIL$n"; return 2; }
+  kind=$(kind_of_labels "$(jq -c '[.labels.nodes[].name]' <<<"$item")")
+  case "$kind" in
+    story) s=$n; story=$item ;;
+    task)  s=$(jq -r .body <<<"$item" | story_of_body)
+           [ -n "$s" ] || { echo "$undecided — its first line names no story"; return 2; }
+           story=$(issue_gql "$s") || { echo "$undecided — the tracker did not answer for story $SIGIL$s"; return 2; } ;;
+    *)     echo "$undecided — it is a ${kind:-item with no kind label}, and only a story and its tasks are conformed"; return 2 ;;
+  esac
+  latest=$(jq -r '.lastEditedAt // .createdAt' <<<"$story")
+  for t in $(jq -r .body <<<"$story" | awk '$0 == "## Tasks" {f = 1; next} /^## /{f = 0} f' \
+             | sed -nE "s/^- \[[ xX]\] $SIGIL([0-9]+).*/\1/p"); do
+    tj=$(issue_gql "$t") || { echo "$undecided — the tracker did not answer for its task $SIGIL$t"; return 2; }
+    e=$(jq -r '.lastEditedAt // .createdAt' <<<"$tj")
+    [[ $e > $latest ]] && latest=$e
+  done
+  # GitHub's timestamps are all UTC `YYYY-MM-DDTHH:MM:SSZ`, so string order is time order.
+  marker=$(jq -r --arg re "$CONFORM_MARKER" \
+    '[.comments.nodes[] | select(.body | test($re))] | max_by(.createdAt) | .createdAt // ""' <<<"$story")
+  if [ -n "$marker" ] && [[ $marker > $latest ]]; then
+    echo "story $SIGIL$s conformed $marker, after its last edit $latest"; return 0
+  fi
+  echo "story $SIGIL$s not conformed since its last edit — /crew:conform $SIGIL$s before work if you want it"
+  return 1
+}
+
 cmd=${1:-}; shift || true
 case "$cmd" in
   ensure-labels) ensure_labels ;;
@@ -678,5 +726,6 @@ case "$cmd" in
   status) status ;;
   show) show "$@" ;;
   comment) comment "$@" ;;
-  *) sed -n '2,16p' "$0"; exit 1 ;;
+  conformed) conformed "$@" ;;
+  *) sed -n '2,17p' "$0"; exit 1 ;;
 esac

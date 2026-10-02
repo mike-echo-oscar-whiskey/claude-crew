@@ -258,5 +258,33 @@ needs "$operating" "a lead who cannot say which has not finished the brief" \
 lacks_constraints_as_given \
   "no sentence the plugin ships tells a role to take a brief's constraints as given"
 
+# The conform contract (0.8.4): a story is conformed whole, premises are checked against the repository and
+# surface as questions, and the pass leaves one marker that `tracker.sh conformed` — and so `/crew:work` —
+# reads. The marker's shape is asserted against the helper's own regex, so the two cannot drift apart.
+conform=skills/conform/SKILL.md
+needs "$conform" "conform that story plus every task its \`## Tasks\` lists" \
+  "conform widens a task number to its story and every task the story lists"
+needs "$conform" "none found is a question, never a guess" \
+  "conform asks rather than guesses a task's story"
+needs_re "$conform" 'one `crew:scout` run per item' \
+  "conform checks each item's premises with one scout run"
+needs "$conform" "never rewritten into the body" \
+  "a contradicted premise is a question, never a silent rewrite"
+needs "$conform" "drift, not a contradiction" \
+  "line-number drift is reported as drift"
+marker_line=$(grep -oE '`crew:conform [^`]*`' "$crew/$conform" | head -1 | tr -d '`')
+marker_re=$(sed -nE "s/^CONFORM_MARKER='(.*)'\$/\\1/p" "$crew/scripts/tracker.sh")
+if [ -z "$marker_line" ] || [ -z "$marker_re" ]; then
+  fail "the marker conform writes is the one tracker.sh conformed reads" "marker example '$marker_line' or regex '$marker_re' not found"
+elif grep -qE -- "$marker_re" <<<"$marker_line"; then
+  pass "the marker conform writes is the one tracker.sh conformed reads"
+else
+  fail "the marker conform writes is the one tracker.sh conformed reads" "'$marker_line' does not match $marker_re"
+fi
+needs skills/work/SKILL.md 'bash $T conformed <n>' \
+  "work asks the tracker whether the task's story was conformed"
+needs skills/work/SKILL.md "never blocks and never runs the pass" \
+  "work's conform lookup is advisory, one line, no pass"
+
 if [ "$fails" -eq 0 ]; then echo "PASS"; exit 0; fi
 echo "FAIL ($fails)"; exit 1

@@ -24,9 +24,15 @@ printf '%s\n' "$*" >> "${CREW_GH_LOG:-/dev/null}"
 prev=""; bf=""; lbl=""; num=""; lim=""
 for a in "$@"; do
   case "$prev" in --body-file) bf=$a ;; --label) lbl=$a ;; --limit) lim=$a ;; view) num=$a ;; esac
+  case "$a" in number=*) num=${a#number=} ;; esac       # `api graphql -F number=N`, as `conformed` reads
   prev=$a
 done
 case "$*" in
+  *"api graphql"*)
+    # One canned GraphQL response per issue number; a number with none answers as the API does when the
+    # call fails — an error on stderr and a non-zero exit — which is how a case reaches "cannot decide".
+    f="${CREW_GH_LIST_DIR:-/nonexistent}/gql-$num.json"
+    if [ -f "$f" ]; then cat "$f"; else echo "GraphQL: Could not resolve to an Issue with the number of $num." >&2; exit 1; fi ;;
   *"issue create"*)
     [ -n "$bf" ] && cat "$bf" >> "${CREW_GH_BODY:-/dev/null}"
     echo "https://github.com/o/r/issues/99" ;;
@@ -1259,6 +1265,76 @@ sepph=$(bug_body C19)
 sed -i 's|^Claiming that item exits 3 and names no failing check\.$|Claiming that item exits 3 and names no failing check, and the design path it cites is still the template own <\nslug> token, wrapped across the line break where it was typed.|' "$sepph"
 run "$p" -- bug create --title 'the probe' --body-file "$sepph"
 refused "$nsep" 'refused: unfilled template placeholder — < slug>'
+
+echo "tracker.sh conformed: has the story been conformed since its last edit?"
+
+# gql <n> <kind> <createdAt> <lastEditedAt or null> <updatedAt> <body file> [<comment createdAt> <comment body>]...
+# -> the canned GraphQL answer for one issue. `updatedAt` is canned LATER than everything else on purpose:
+#    GitHub moves it on a comment, a label and a close (seen on vonk-platform #737: updatedAt 06:39:45,
+#    lastEditedAt 06:19:44), and the marker comment itself moves it, so a helper reading it would never
+#    report a story as conformed. Every case below would go red on that mistake.
+gql() {
+  local n=$1 kind=$2 created=$3 edited=$4 updated=$5 bf=$6; shift 6
+  local comments='[]'
+  while [ $# -ge 2 ]; do
+    comments=$(jq -c --arg c "$1" --arg b "$2" '. + [{createdAt: $c, body: $b}]' <<<"$comments"); shift 2
+  done
+  jq -n --argjson n "$n" --arg k "$kind" --arg c "$created" --arg u "$updated" --arg e "$edited" \
+        --rawfile b "$bf" --argjson cm "$comments" \
+    '{data: {repository: {issue: {number: $n, createdAt: $c, updatedAt: $u,
+      lastEditedAt: (if $e == "null" then null else $e end), body: $b,
+      labels: {nodes: [{name: $k}]}, comments: {nodes: $cm}}}}}' > "$lists/gql-$n.json"
+}
+cstory="$tmp/cstory.md"; printf '## TL;DR\n\nA story.\n\n## Tasks\n\n- [ ] #71 (architect) one\n- [x] #72 (architect) two\n' > "$cstory"
+ctask="$tmp/ctask.md"; printf 'Story: #70\nBlocked by: none\n\n## TL;DR\n\nA task.\n' > "$ctask"
+cloose="$tmp/cloose.md"; printf 'Blocked by: none\n\n## TL;DR\n\nA task with no story line.\n' > "$cloose"
+cmark='crew:conform 2026-10-02T09:00:00Z 57224763
+Conformed #70, #71, #72; declined: none.'
+cleanup_gql() { rm -f "$lists"/gql-*.json; }
+wrote_board() { grep -aqE 'issue (edit|comment|create|close)|label create' "$ghlog"; }
+
+# 44. Decision 4 — a marker newer than every body edit, the story's and each listed task's, is conformed;
+#     asked from a task, the helper resolves the story off the task's first line.
+nc1="conformed answers 0 for a story whose marker is newer than every body edit, asked from a task"
+gql 70 story 2026-10-01T08:00:00Z 2026-10-02T08:00:00Z 2026-10-02T11:00:00Z "$cstory" \
+    2026-10-02T07:00:00Z 'an older remark' 2026-10-02T09:00:05Z "$cmark"
+gql 71 task  2026-10-01T08:10:00Z 2026-10-02T08:30:00Z 2026-10-02T11:00:00Z "$ctask"
+gql 72 task  2026-10-01T08:20:00Z null                 2026-10-02T11:00:00Z "$ctask"
+p=$(profile conformed)
+run "$p" -- conformed 71
+if reported "$nc1" 0 'story #70 conformed'; then
+  if wrote_board; then fail "$nc1" "conformed wrote to the board: $(cat "$ghlog")"; else pass "$nc1"; fi
+fi
+
+# 45. The exact line `/crew:work` prints, when one listed task's body moved after the marker.
+nc2="conformed answers 1 with the one line work prints when a task body was edited after the marker"
+gql 72 task 2026-10-01T08:20:00Z 2026-10-02T10:00:00Z 2026-10-02T11:00:00Z "$ctask"
+run "$p" -- conformed 70
+reported "$nc2" 1 'story #70 not conformed since its last edit — /crew:conform #70 before work if you want it' && pass "$nc2"
+
+# 46. A story never conformed: no marker among its comments is the same answer, not a different one.
+nc3="conformed answers 1 for a story that carries no marker at all"
+gql 70 story 2026-10-01T08:00:00Z null 2026-10-02T11:00:00Z "$cstory" 2026-10-02T07:00:00Z 'crew:conformed is not the marker'
+gql 72 task  2026-10-01T08:20:00Z null 2026-10-02T11:00:00Z "$ctask"
+run "$p" -- conformed 70
+reported "$nc3" 1 'story #70 not conformed since its last edit' && pass "$nc3"
+
+# 47. Decision 4 — a lookup that cannot decide says so in its one line and exits 2: a listed task the API
+#     will not answer for, and a task whose first line names no story. Neither is reported as unconformed.
+nc4="conformed answers 2, in one line, when a listed task cannot be read"
+rm -f "$lists/gql-72.json"
+run "$p" -- conformed 70
+if reported "$nc4" 2 'conform state of #70 not checked'; then
+  if [ "$(printf '%s\n' "$out" | grep -c .)" -ne 1 ]; then fail "$nc4" "expected one line, got: $out"; else pass "$nc4"; fi
+fi
+nc5="conformed answers 2 for a task whose first line names no story, instead of guessing one"
+gql 73 task 2026-10-01T08:20:00Z null 2026-10-02T11:00:00Z "$cloose"
+run "$p" -- conformed 73
+reported "$nc5" 2 'conform state of #73 not checked' 'names no story' && pass "$nc5"
+nc6="conformed refuses a target that is not one item number"
+run "$p" -- conformed --all
+reported "$nc6" 1 'conformed takes one item number' && pass "$nc6"
+cleanup_gql
 
 if [ "$fails" -eq 0 ]; then echo "PASS"; exit 0; fi
 echo "FAIL ($fails)"; exit 1

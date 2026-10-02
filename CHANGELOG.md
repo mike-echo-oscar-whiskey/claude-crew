@@ -3,6 +3,50 @@
 Per release: what changed, what to do, and what happens to a project that changes nothing. Entries
 are appended, never rewritten — an entry describes the release it names, not the current tree.
 
+## 0.9.0 — 2026-10-02
+
+**The release that conforms a story whole, checks what its bodies claim about the repository, and lets
+`/crew:work` say in one line when that has not happened since the last edit.** A shape-only pass could
+not have caught the lint-clean task body that asserted a demo seed listed only in-plan models when it
+did not; it cost a blocked implementation run and three questions to the user. `/crew:conform` now takes
+a story — a task number widens to its story and every task that story lists — and has one scout per item
+verify every concrete claim about the repository before the diff is shown.
+
+The payload moved in `plugins/crew/skills/conform/SKILL.md`, `plugins/crew/skills/work/SKILL.md` and
+`plugins/crew/scripts/tracker.sh`; `tests/tracker.test.sh` and `tests/review-contract.test.sh` ride along.
+
+### What changed
+
+- **`/crew:conform <n>` conforms a story and all its tasks.** A task resolves to its story by its
+  `Story:` line, else by the story whose `## Tasks` lists it; none or two is a question, never a guess.
+  `--all`, a bug and a tech-debt item get the shape pass exactly as before.
+- **A premise check, step 4.** One `crew:scout` run per item returns each claim the body makes about the
+  repository as verified, contradicted, drift or unverifiable, each with path:line and the quoted line.
+  A contradiction is shown in the diff as a question and never rewritten into the body; line drift alone
+  may be corrected as a countable fix shown in the diff.
+- **One marker per story.** After the approvals, and on a yes, the pass comments on the story with a first
+  line `crew:conform <UTC ISO 8601> <short HEAD>` and lists what conformed, what was declined and what
+  was left open.
+- **`tracker.sh conformed <n>`**, read-only: exit 0 when the newest marker is newer than the last body
+  edit of the story and of every task it lists, 1 when not, 2 when it cannot decide, one stdout line each.
+  It reads GraphQL `lastEditedAt` (`createdAt` before a first edit), because `updatedAt` moves on every
+  comment, label and close — the marker itself included.
+- **`/crew:work` step 1** runs that lookup once and relays its line when the exit is 1 or 2, then carries
+  on. It never blocks and never runs the pass.
+
+### What to do
+
+1. Install it: `claude plugin install crew@claude-crew`.
+2. Nothing else is required. Run `/crew:conform #<story>` before working a story whose bodies were written
+   against an older tree.
+
+### What happens if a project changes nothing
+
+1. **`/crew:work` prints one extra line** for every story not yet conformed — every story on a board that
+   predates this release — and proceeds as before.
+2. **`/crew:conform <task>` now touches the whole story**, where it used to touch only that task, and
+   dispatches one scout per item in it.
+
 ## 0.8.3 — 2026-10-02
 
 **The release that reads a `## Proves` bullet by how it opens, and gives a task that proves nothing a

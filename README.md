@@ -29,11 +29,11 @@ that changes nothing.
 | One specialist's opinion | mention `@agent-crew:security-engineer` (any role) in a prompt |
 | Refine a backlog line into a story issue | `/crew:refine <text or #issue>` |
 | Design + task issues for a story | `/crew:plan #12` |
-| Work a task to a PR in a worktree | `/crew:work #15` |
+| Work a task to a PR in a worktree | `/crew:work #15` (says in one line when the task's story has not been conformed since its last edit; never blocks) |
 | Crew review of a PR | `/crew:review 40` |
 | Pick the next claimable task | `/crew:next` |
 | Board, with how many items still match the item shape | `/crew:status` (the count comes from `scripts/tracker.sh lint --all --quiet`; `lint --all` is the per-item report behind it) |
-| Bring items filed before the item shape over to it | `/crew:conform [<n> \| --all]` (drafts the fixes a body already decides, briefs the owning role for new text, and shows you a diff per item before anything is written) |
+| Realign a story and its tasks, shape and premises, once | `/crew:conform [<n> \| --all]` (a task number widens to its story and every task it lists; drafts the fixes a body already decides, briefs the owning role for new text, has a scout check each body's claims about the repository, shows you a diff per item with each contradiction as a question before anything is written, and leaves a `crew:conform` marker on the story; a bug, tech-debt item or `--all` gets the shape pass alone) |
 | Whole session as delivery lead | `/crew:on` … `/crew:off` (or `mode: always` in the profile) |
 
 `scripts/tracker.sh lint [<n> | --all | --kind story|task|bug|tech-debt] [--quiet]` is that report:
@@ -41,6 +41,11 @@ it only reads the board, prints one line per item whose body no longer matches i
 naming each failing check, and exits 1 when any item fails. It reads up to 2000 items per kind (`gh`
 pages the API to get there); if a kind fills that, the closing line names the kind and the limit and
 the exit is 2, because a read that stopped short has no verdict to report.
+
+`scripts/tracker.sh conformed <n>` is the read behind `/crew:work`'s one line: for a story, or the
+story a task names, it compares the newest `crew:conform` marker comment with the last body edit of
+the story and of every task it lists (GraphQL `lastEditedAt`, not `updatedAt`, which every comment
+and label moves) and exits 0 conformed, 1 not, 2 when it cannot decide — one line either way.
 
 Rollout policy: items filed before the item shape stay untouched until you run `/crew:conform`,
 which edits one only after you approve its diff. The crew will not file a new item that lacks the
