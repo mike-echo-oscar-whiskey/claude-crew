@@ -6,7 +6,7 @@
     {
       "name": "crew",
       "description": "Delivery lead + 17 specialist personas, /crew:* pipeline skills, tracker adapter, crew-mode hooks",
-      "version": "0.9.0",
+      "version": "0.10.0",
       "source": "./plugins/crew"
     }
   ]

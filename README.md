@@ -33,7 +33,7 @@ that changes nothing.
 | Crew review of a PR | `/crew:review 40` |
 | Pick the next claimable task | `/crew:next` |
 | Board, with how many items still match the item shape | `/crew:status` (the count comes from `scripts/tracker.sh lint --all --quiet`; `lint --all` is the per-item report behind it) |
-| Realign a story and its tasks, shape and premises, once | `/crew:conform [<n> \| --all]` (a task number widens to its story and every task it lists; drafts the fixes a body already decides, briefs the owning role for new text, has a scout check each body's claims about the repository, shows you a diff per item with each contradiction as a question before anything is written, and leaves a `crew:conform` marker on the story; a bug, tech-debt item or `--all` gets the shape pass alone) |
+| Realign a story and its tasks, shape and premises, once | `/crew:conform [<n> \| --all]` (a task number widens to its story and every task it lists; drafts the fixes a body already decides, briefs the owning role for new text, has a scout check each body's claims about the repository, shows you a diff per item, with a check that no sentence of the old body was lost and each contradiction as a question, before anything is written, and leaves a `crew:conform` marker on the story; a bug, tech-debt item or `--all` gets the shape pass alone) |
 | Whole session as delivery lead | `/crew:on` … `/crew:off` (or `mode: always` in the profile) |
 
 `scripts/tracker.sh lint [<n> | --all | --kind story|task|bug|tech-debt] [--quiet]` is that report:
@@ -46,6 +46,10 @@ the exit is 2, because a read that stopped short has no verdict to report.
 story a task names, it compares the newest `crew:conform` marker comment with the last body edit of
 the story and of every task it lists (GraphQL `lastEditedAt`, not `updatedAt`, which every comment
 and label moves) and exits 0 conformed, 1 not, 2 when it cannot decide — one line either way.
+`scripts/tracker.sh preserved <old> <new>` is the loss check beside each of `/crew:conform`'s diffs:
+it lists every sentence, clause, bullet or heading of the old body not found verbatim in the new one,
+which a unified diff cannot answer once a section has moved, and exits 0 when none is missing, 1 when
+some is, 2 when a file cannot be read. It reads two local files and nothing else.
 
 Rollout policy: items filed before the item shape stay untouched until you run `/crew:conform`,
 which edits one only after you approve its diff. The crew will not file a new item that lacks the

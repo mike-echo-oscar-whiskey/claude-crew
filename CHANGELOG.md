@@ -3,6 +3,56 @@
 Per release: what changed, what to do, and what happens to a project that changes nothing. Entries
 are appended, never rewritten — an entry describes the release it names, not the current tree.
 
+## 0.10.0 — 2026-10-02
+
+**The release that makes `/crew:conform` keep every sentence it was given, read the decisions recorded in
+comments, and count what it can count.** Its first real run, on a story of seven tasks, turned up six
+defects: briefs built from the body alone, so a role wrote prose a comment had already overruled; a scout
+that reported what a task will add as a contradiction; old-shape bodies patched with pasted sections
+instead of restructured; no way to see whether a rewrite dropped a sentence, since a unified diff shows a
+moved section as removed; a Proof map whose Task column nothing ever filled; and two lint counts that
+named the disagreement but not its cause.
+
+The payload moved in `plugins/crew/skills/conform/SKILL.md`, `plugins/crew/scripts/tracker.sh` and
+`plugins/crew/templates/item-task.md`; `tests/tracker.test.sh` and `tests/review-contract.test.sh` ride
+along.
+
+### What changed
+
+- **Every role and scout brief carries the item's comments**, and a task's story's comments, marked as
+  decisions that win over the body where they differ. A decided answer enters the body only as a listed
+  edit the user approves, naming the comment it came from.
+- **The scout sorts before it checks**: each claim is either about what exists today, which it verifies,
+  or about what the item adds, renames or removes, which it lists under **plan** and reports as
+  contradicted only when the thing to be renamed or removed does not exist. A bare file name is searched
+  across the whole tree.
+- **An old-shape body is restructured, not patched.** When a section must be renamed or re-shaped, the role
+  returns the whole proposed body: every existing sentence kept verbatim, text moved and headings renamed
+  as needed, nothing dropped, shortened or paraphrased, every changed word listed.
+- **`tracker.sh preserved <old> <new>`**, read-only: every fragment of the old body — heading, list item,
+  sentence or clause, whitespace-normalised — not found verbatim in the new one, then
+  `<k> fragments kept, <m> not found`; exit 0 when none is missing, 1 when some is, 2 when a file cannot be
+  read. Step 5 quotes it beside each diff, and every fragment it lists is matched to a listed edit or
+  flagged as a loss.
+- **The Proof map's Task column is counted** at the end of a story pass: per criterion, the tasks whose
+  `## Proves` bullets open with `<story-ref> AC <n>`, shown as its own diff and approved on its own. A
+  criterion no task proves keeps an empty cell; Proven by stays empty until the work lands.
+- **Two lint messages name their cause.** `## Files lists N files, Size: says H` now names each bullet
+  that opens with no backticked path, since such a bullet can match no `generated:` glob and counts as
+  hand-written; `## Tests … lists N numbered tests` now says every numbered entry counts as a RED test.
+  Neither check is loosened. The task template states both rules in one line each.
+
+### What to do
+
+1. Install it: `claude plugin install crew@claude-crew`.
+2. Nothing else is required.
+
+### What happens if a project changes nothing
+
+1. **`lint` and `task create` print longer refusals** for the same bodies they refused before; the exit
+   codes and the set of refused bodies are unchanged.
+2. **A story pass asks one more approval**, for the Proof map's Task column, after its tasks are done.
+
 ## 0.9.0 — 2026-10-02
 
 **The release that conforms a story whole, checks what its bodies claim about the repository, and lets

@@ -1336,5 +1336,92 @@ run "$p" -- conformed --all
 reported "$nc6" 1 'conformed takes one item number' && pass "$nc6"
 cleanup_gql
 
+# 48. 0.9.1 — a count that disagrees names its cause. A `## Files` bullet that does not OPEN with a backticked
+#     path cannot match a generated: glob, so it counts as hand-written; the refusal says which bullets those
+#     are instead of leaving "27 files, Size: says 22" to be reverse-engineered. The check itself is unchanged.
+n48="a Files count that disagrees names the bullets that open with no backticked path"
+pg48=$(profile generated48 "generated: gen/*.json")
+b48=$(task_body t48 'Size: 1 hand-written files (+ 1 generated) · 1 RED tests · one PR' 1 1 'Split line: n/a')
+sed -i '/^- `plugins\/crew\/scripts\/f1.sh`/a - generated: `gen/b.json` — the path does not open the bullet' "$b48"
+run "$pg48" -- task create --story 5 --title T --role agentic-ai-engineer --body-file "$b48"
+refused "$n48" 'refused: ## Files lists 2 files, Size: says 1' \
+  '1 bullet opens with no backticked path' '- generated: `gen/b.json`'
+
+# 49. 0.9.1 — the RED count's refusal says the rule it counts by: every numbered entry is a RED test, so a
+#     deliberate non-RED witness goes unnumbered or under Done when. The count stays as strict as before.
+n49="a Tests count that disagrees says every numbered entry counts as a RED test"
+run "$p" -- task create --story 5 --title T --role agentic-ai-engineer \
+  --body-file "$(task_body t49 'Size: 2 hand-written files (+ 0 generated) · 1 RED tests · one PR' 2 2 'Split line: n/a')"
+refused "$n49" 'refused: ## Tests (RED first) lists 2 numbered tests, Size: says 1' \
+  'every numbered entry under ## Tests (RED first) is counted as a RED test' 'unnumbered or under ## Done when'
+
+# 50. The profile reader strips a trailing "# comment", so `generated: a/*.json  # guessed by /crew:init —
+#     verify` yields the glob alone and none of the comment's words becomes a glob.
+n50="crew_profile_value strips a trailing comment from the generated: line"
+pc50=$(profile comment50 'generated: gen/*.json, apps/*/package-lock.json  # guessed by /crew:init — verify')
+got50=$(. "$crew/scripts/common.sh"; crew_profile_value "$pc50/.claude/crew/profile.md" generated)
+if [ "$got50" = 'gen/*.json, apps/*/package-lock.json' ]; then pass "$n50"; else fail "$n50" "got '$got50'"; fi
+
+# 51-55. 0.9.1 — `preserved <old> <new>`, read-only: every fragment of the old body (a sentence, a clause
+#     ending in ; or :, a list item, a paragraph) that is not found verbatim, whitespace-normalised, in the
+#     new body, one per line, then a closing count. A moved section is not a loss — the case a unified diff
+#     gets wrong, showing the whole section as removed — and a shortened sentence or a dropped bullet is.
+old51="$tmp/pres-old.md"; cat > "$old51" <<'EOF'
+## Problem
+
+The board loses tasks. Nobody sees them; nobody does them.
+
+## Why
+
+A task nobody can see is work nobody does.
+
+## Likely files
+
+- `a.sh`, `b.sh` — both change
+- `c.md` — the doc
+EOF
+moved51="$tmp/pres-moved.md"; cat > "$moved51" <<'EOF'
+## Why
+
+A task nobody can see
+is work nobody does.
+
+## Problem
+
+The board loses tasks.   Nobody sees them; nobody does them.
+
+## Likely files
+
+- `a.sh`, `b.sh` — both change
+- `c.md` — the doc
+EOF
+n51="preserved follows a moved section and a reflowed line: nothing lost, exit 0"
+run "$p" -- preserved "$old51" "$moved51"
+if reported "$n51" 0 '0 not found'; then
+  if [ "$(printf '%s\n' "$out" | grep -c .)" -ne 1 ]; then fail "$n51" "expected the closing line alone, got: $out"
+  elif wrote_board; then fail "$n51" "preserved wrote to the board: $(cat "$ghlog")"
+  else pass "$n51"; fi
+fi
+lost52="$tmp/pres-lost.md"
+sed -e 's/^A task nobody can see is work nobody does\.$/Unseen work is not done./' -e '/^- `c\.md`/d' "$old51" > "$lost52"
+n52="preserved lists a paraphrased sentence and a dropped bullet, and exits 1"
+run "$p" -- preserved "$old51" "$lost52"
+if reported "$n52" 1 'A task nobody can see is work nobody does.' '`c.md` — the doc' '2 not found'; then
+  case "$out" in *'The board loses tasks.'*) fail "$n52" "a kept sentence was listed as lost: $out" ;; *) pass "$n52" ;; esac
+fi
+# A fragment keeps the punctuation that ends it, so the ";" that became "." is listed too: it is a changed
+# character, and the approval has to see it.
+n53="preserved lists a clause cut from a sentence that is otherwise kept"
+sed 's/ Nobody sees them; nobody does them\./ Nobody sees them./' "$old51" > "$tmp/pres-clause.md"
+run "$p" -- preserved "$old51" "$tmp/pres-clause.md"
+reported "$n53" 1 'Nobody sees them;' 'nobody does them.' '2 not found' && pass "$n53"
+n54="preserved refuses an unreadable file with exit 2 rather than reporting it as all lost"
+run "$p" -- preserved "$old51" "$tmp/does-not-exist.md"
+reported "$n54" 2 'preserved' && pass "$n54"
+n55="preserved counts a renamed heading as not found, so the rename must be a listed edit"
+sed 's/^## Likely files$/## Files/' "$old51" > "$tmp/pres-head.md"
+run "$p" -- preserved "$old51" "$tmp/pres-head.md"
+reported "$n55" 1 '## Likely files' '1 not found' && pass "$n55"
+
 if [ "$fails" -eq 0 ]; then echo "PASS"; exit 0; fi
 echo "FAIL ($fails)"; exit 1

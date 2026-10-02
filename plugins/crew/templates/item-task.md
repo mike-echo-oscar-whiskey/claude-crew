@@ -46,14 +46,17 @@ one bullet, "none — <why>".>
 - `path` — <what changes there>
 
 <H in the Size line is the length of this list. Files matching one of the profile's generated paths
-are counted in G instead and do not spend the cap: nobody reviews them line by line.
+are counted in G instead and do not spend the cap: nobody reviews them line by line. One path per bullet, and
+the bullet opens with it. A bullet that does not open with a backticked path counts as hand-written —
+"- generated: `x.json`" is one H, not one G.
 Generated paths: <profile:generated>>
 
 ## Tests (RED first)
 
 1. **RED** `<Test>` — <the behaviour, and the criterion it proves>
 
-<At most five numbered RED tests. Six is a signal, eight is three tasks: the file list is a guess
+<Every numbered entry here counts as a RED test, and T in the Size line is their count: a witness that
+is deliberately not RED goes unnumbered, or under Done when. At most five numbered RED tests. Six is a signal, eight is three tasks: the file list is a guess
 made before opening the code and is routinely low, while the RED list is a decision and is
 accurate.>
 

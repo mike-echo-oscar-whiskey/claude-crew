@@ -15,6 +15,7 @@
 #   tracker.sh show N                 (issue + comments)
 #   tracker.sh comment N --body-file F
 #   tracker.sh conformed N            (read-only: 0 conformed since the last body edit, 1 not, 2 cannot decide; one line)
+#   tracker.sh preserved OLD NEW      (read-only, local files: each fragment of OLD not found verbatim in NEW; 0 none, 1 some, 2 unreadable)
 set -euo pipefail
 . "$(dirname "$0")/common.sh"
 command -v gh >/dev/null || { echo "needs gh (GitHub CLI)" >&2; exit 1; }
@@ -169,20 +170,23 @@ body_placeholders() { # <file> -> the template stubs still in the body, one per 
     | { grep -avE '^<https?:' || true; } | tr '\001' ' ' | sort -u
 }
 
-files_hand_written() { # <file> <heading> -> bullets whose path is not a generated: glob
-  local n=0 line p glob
+UNPATHED=()
+files_hand_written() { # <file> <heading> -> sets FILES_N, the bullets whose path is not a generated: glob,
+  local line p glob                                  # and UNPATHED, the bullets that open with no path
   local -a globs=(); read -ra globs <<<"$GENERATED"   # split, never expand: an unquoted $GENERATED
-  while IFS= read -r line; do                         # would pathname-expand against the cwd
+  FILES_N=0; UNPATHED=()                              # would pathname-expand against the cwd
+  while IFS= read -r line; do
     p=$(sed -nE 's/^[[:space:]]*-[[:space:]]*`([^`]*)`.*/\1/p' <<<"$line")
     if [ -n "$p" ]; then
       for glob in ${globs[@]+"${globs[@]}"}; do
         # shellcheck disable=SC2053  # the profile's value is a glob on purpose
         if [[ $p == $glob ]]; then continue 2; fi
       done
+    else
+      UNPATHED+=("$line")
     fi
-    n=$((n + 1))
+    FILES_N=$((FILES_N + 1))
   done < <(section_body "$1" "$2" | { grep -aE '^[[:space:]]*- ' || true; })
-  echo "$n"
 }
 
 SECTIONS=()
@@ -306,8 +310,17 @@ validate_task_body() { # <assembled body file> <story as given>
   proves_h=$(section_of '## Proves' "${sections[@]+"${sections[@]}"}")
 
   if [ -n "$files_h" ] && [ -n "$h" ]; then
-    nf=$(files_hand_written "$f" "$files_h")
-    if [ "$nf" != "$h" ]; then refuse "$files_h lists $nf files, Size: says $h"; fi
+    files_hand_written "$f" "$files_h"; nf=$FILES_N
+    if [ "$nf" != "$h" ]; then
+      # The cause, not only the count: a bullet whose path does not OPEN it is never matched against a
+      # generated: glob, so "- generated: `x.json`" counts as hand-written and the count reads as wrong.
+      local cause="" b
+      if [ ${#UNPATHED[@]} -gt 0 ]; then
+        cause=" — ${#UNPATHED[@]} bullet$([ ${#UNPATHED[@]} -gt 1 ] && echo s) open$([ ${#UNPATHED[@]} -eq 1 ] && echo s) with no backticked path, so no generated: glob can match and each counts as hand-written:"
+        for b in "${UNPATHED[@]}"; do cause+=" \"${b#"${b%%[![:space:]]*}"}\""; done
+      fi
+      refuse "$files_h lists $nf files, Size: says $h$cause"
+    fi
   fi
   if [ -n "$tests_h" ] && [ -n "$t" ]; then
     nt=$(section_body "$f" "$tests_h" | { grep -acE '^[[:space:]]*[0-9]+\.' || true; })
@@ -316,7 +329,7 @@ validate_task_body() { # <assembled body file> <story as given>
         refuse "Size: says 0 RED tests, and $tests_h does not declare the task test-free"
       fi
     elif [ "$nt" != "$t" ]; then
-      refuse "$tests_h lists $nt numbered tests, Size: says $t"
+      refuse "$tests_h lists $nt numbered tests, Size: says $t — every numbered entry under $tests_h is counted as a RED test; a witness that is not RED goes unnumbered or under ## Done when"
     fi
   fi
   if [ -n "$proves_h" ]; then check_proves "$f" "$proves_h"; fi
@@ -713,6 +726,49 @@ conformed() {
   return 1
 }
 
+# The loss check /crew:conform shows beside each diff. A unified or word diff cannot follow a moved section —
+# moving `## Why` above `## Problem` reads as the whole section removed — so this asks the other question:
+# is every piece of the old body still somewhere in the new one, character for character? A fragment is a
+# heading, a list item or a paragraph, cut again after each sentence or clause end (. ; : ? ! then space),
+# whitespace-normalised and keeping the punctuation that ends it; the new body is normalised the same way and
+# searched as one string, so a reflowed line or a moved section is kept and a paraphrase, a cut clause or a
+# dropped bullet is not. A list marker is not text, so a bullet renumbered or turned from "1." into "-" is
+# kept; a renamed heading is not, which is why every rename is a listed edit. Read-only: two local files in,
+# no tracker call.
+preserved() {
+  [ $# -eq 2 ] || { echo "preserved takes <old-body-file> <new-body-file>" >&2; return 2; }
+  local f
+  for f in "$1" "$2"; do
+    [ -f "$f" ] && [ -r "$f" ] || { echo "preserved cannot read $f — nothing was compared" >&2; return 2; }
+  done
+  awk -v NEWF="$2" '
+    function norm(x) { gsub(/[[:space:]]+/, " ", x); sub(/^ /, "", x); sub(/ $/, "", x); return x }
+    function emit(x,   frag) {
+      x = norm(x)
+      while (x != "") {
+        if (match(x, /[.;:?!] /)) { frag = substr(x, 1, RSTART); x = substr(x, RSTART + 2) }
+        else { frag = x; x = "" }
+        frag = norm(frag)
+        if (frag ~ /[[:alnum:]]/ && !(frag in seen)) { seen[frag] = 1; order[++n] = frag }
+      }
+    }
+    function flush() { if (blk != "") emit(blk); blk = "" }
+    BEGIN { while ((getline l < NEWF) > 0) body = body " " l; close(NEWF); body = norm(body) }
+    /^[[:space:]]*$/ { flush(); next }
+    /^#+ / { flush(); blk = $0; flush(); next }
+    /^[[:space:]]*([-*+]|[0-9]+\.)[[:space:]]/ {
+      flush(); blk = $0; sub(/^[[:space:]]*([-*+]|[0-9]+\.)[[:space:]]+/, "", blk); next
+    }
+    { blk = (blk == "" ? $0 : blk " " $0) }
+    END {
+      flush(); lost = 0
+      for (i = 1; i <= n; i++) if (index(body, order[i]) == 0) { print order[i]; lost++ }
+      printf "%d fragments kept, %d not found\n", n - lost, lost
+      exit (lost > 0)
+    }
+  ' "$1"
+}
+
 cmd=${1:-}; shift || true
 case "$cmd" in
   ensure-labels) ensure_labels ;;
@@ -727,5 +783,6 @@ case "$cmd" in
   show) show "$@" ;;
   comment) comment "$@" ;;
   conformed) conformed "$@" ;;
-  *) sed -n '2,17p' "$0"; exit 1 ;;
+  preserved) preserved "$@" ;;
+  *) sed -n '2,18p' "$0"; exit 1 ;;
 esac

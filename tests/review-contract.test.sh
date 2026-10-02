@@ -286,5 +286,34 @@ needs skills/work/SKILL.md 'bash $T conformed <n>' \
 needs skills/work/SKILL.md "never blocks and never runs the pass" \
   "work's conform lookup is advisory, one line, no pass"
 
+# The conform contract (0.9.1), from its first real run: decisions in comments reach every brief, the scout
+# checks only what exists today, an old-shape body is restructured with every sentence kept, a loss check
+# sits beside each diff, the Proof map's Task column is counted, and the task template states both counting
+# rules lint enforces.
+needs "$conform" "the item's comments, and for a task its story's comments too" \
+  "conform's role and scout briefs carry the item's comments"
+needs "$conform" "decisions that win over the body where they differ" \
+  "a comment's decision wins over the body it contradicts"
+needs "$conform" "only as a listed edit the user approves" \
+  "a decided answer enters the body only as a listed, approved edit"
+needs "$conform" "first sorts every claim into **exists today** or **this item adds, renames or removes it**" \
+  "the scout sorts claims before checking them, so a plan is not a contradiction"
+needs "$conform" "search the whole tree for a bare file name" \
+  "the scout searches the whole tree for a bare file name"
+needs "$conform" "every existing sentence kept verbatim" \
+  "an old-shape body is restructured with every sentence kept verbatim"
+needs "$conform" "every changed word listed" \
+  "a restructured body lists every changed word"
+needs "$conform" 'bash $T preserved <old> <new>' \
+  "conform runs the loss check beside each diff"
+needs "$conform" "flagged as a loss" \
+  "a fragment matched to no listed edit is flagged as a loss"
+needs "$conform" 'whose `## Proves` bullets open with `<story-ref> AC <n>`' \
+  "conform counts the Proof map's Task column from the conformed tasks"
+needs templates/item-task.md "A bullet that does not open with a backticked path counts as hand-written" \
+  "the task template says a Files bullet must open with its path"
+needs templates/item-task.md "Every numbered entry here counts as a RED test" \
+  "the task template says every numbered Tests entry counts as RED"
+
 if [ "$fails" -eq 0 ]; then echo "PASS"; exit 0; fi
 echo "FAIL ($fails)"; exit 1
