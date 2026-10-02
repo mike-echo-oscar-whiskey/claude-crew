@@ -282,6 +282,14 @@ validate_task_body() { # <assembled body file> <story as given>
     # no number to name — the shape is what the message has to state there.
     refuse "first line must be \"Story: $SIGIL${num:-<n>}\" (the board rolls tasks up by it) — got \"$first\""
   fi
+  # One header, not two: every reader (the board, blockers_open) takes the first copy, so a second one that
+  # disagrees is invisible. create writes the header itself from --story and --blocked-by, so a body file
+  # that opens with its own lines lands here as two; lint reads the same count off a stored body.
+  for key in "Story:" "Blocked by:"; do
+    if [ "$(grep -acE "^$key" "$f")" -gt 1 ]; then
+      refuse "exactly one \"$key\" line: a --body-file carries no header lines — task create writes them from --story and --blocked-by"
+    fi
+  done
   for key in "Blocked by:" "Role:" "Size:"; do
     if ! grep -aqE "^$key" "$f"; then refuse "the \"$key\" line is missing"; fi
   done

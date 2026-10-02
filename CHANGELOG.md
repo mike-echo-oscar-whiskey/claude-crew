@@ -3,6 +3,28 @@
 Per release: what changed, what to do, and what happens to a project that changes nothing. Entries
 are appended, never rewritten — an entry describes the release it names, not the current tree.
 
+## 0.10.1 — 2026-10-02
+
+**A patch: a task's header can no longer be stored twice.** `task create` writes `Story:` and `Blocked by:`
+itself, and the task template opens with the same two lines, so a body filed back as rendered carried the
+header twice; every reader took the first copy, and where the two disagreed the second was invisible.
+
+The payload moved in `plugins/crew/scripts/tracker.sh`, `plugins/crew/skills/plan/SKILL.md` and
+`plugins/crew/templates/item-task.md`; `tests/tracker.test.sh` rides along.
+
+### What changed
+
+- **A task body carries exactly one `Story:` line and one `Blocked by:` line.** `task create` refuses a
+  `--body-file` that has its own, naming `--story` and `--blocked-by`; `lint` applies the same rule to
+  stored bodies, so an item already filed with the header twice is now reported.
+- `/crew:plan` and the task template say the body file carries no header lines.
+
+### What to do
+
+Run `tracker.sh lint --kind task`; for each item it reports, edit the body to keep one header and make sure
+the surviving `Blocked by:` is the one you meant. A project that changes nothing keeps working; only a new
+`task create` from a headed body file is refused.
+
 ## 0.10.0 — 2026-10-02
 
 **The release that makes `/crew:conform` keep every sentence it was given, read the decisions recorded in

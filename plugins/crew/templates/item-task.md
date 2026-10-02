@@ -4,7 +4,10 @@
      tracker.sh rolls tasks up under their story with startswith("Story: #<n>") and greps
      ^Story: # for the claimable list. A task filed by hand, from a web-UI template, is
      invisible to the board without it. "Blocked by:", "Role:" and "Size:" must be present too,
-     and an override changes neither requirement: it decides the sections, not these four lines. -->
+     and an override changes neither requirement: it decides the sections, not these four lines.
+     The two header lines exist in the STORED body, not in the file you pass to `tracker.sh task create
+     --body-file`: create writes "Story:" and "Blocked by:" from --story and --blocked-by and refuses a
+     body file that carries either, so strip those two lines (and the blank line after) from the file. -->
 
 Story: <profile:tracker-sigil><n>
 Blocked by: <refs, or "none">

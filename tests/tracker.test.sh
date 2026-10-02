@@ -241,6 +241,13 @@ run "$p" -- task create --story '#5' --title T --role agentic-ai-engineer --body
 refused "task create refuses a body whose first line is not Story: #n" \
   'refused: first line must be "Story: #5"' 'got "Story: ##5"'
 
+# 1b. A body file that opens with the header — what a lead gets by filing the template's own lines
+#     back — made the stored body carry Story:/Blocked by: twice, and every reader took the first copy.
+hdr="$tmp/t1b-header.md"; { echo 'Story: #5'; echo 'Blocked by: #3'; echo; cat "$(conforming_task t1b)"; } > "$hdr"
+run "$p" -- task create --story 5 --title T --role agentic-ai-engineer --body-file "$hdr"
+refused "task create refuses a body file that carries its own Story: and Blocked by: lines" \
+  'refused: exactly one "Story:" line' 'a --body-file carries no header' '--story' '--blocked-by'
+
 # 2. AC 3 — an estimate is not a size.
 run "$p" -- task create --story 5 --title T --role agentic-ai-engineer \
   --body-file "$(task_body t2 'Size: about 25 files' 2 1 'Split line: n/a')"
@@ -499,6 +506,14 @@ if reported "$n2" 0 '2 conforming, 0 not'; then
   if [ "$out" != "2 conforming, 0 not" ]; then fail "$n2" "a conforming board needs no per-item line, got: $out"
   else pass "$n2"; fi
 fi
+
+# 8b. The eleven bodies already on a board with the header twice: lint reports them by the same rule
+#     create refuses with, so create and lint cannot disagree about what a header is.
+n2b="lint reports a stored body that carries the Story: and Blocked by: header twice"
+dup="$tmp/dup.board"; { echo 'Story: #1'; echo 'Blocked by: none'; echo; cat "$good"; } > "$dup"
+list_json task "11:$good" "15:$dup"
+run "$p" -- lint --kind task
+reported "$n2b" 1 '#15' 'exactly one "Story:" line' 'exactly one "Blocked by:" line' '1 conforming, 1 not' && pass "$n2b"
 
 # 9. AC 7, AC 11 — an item filed before this shape existed is still claimable, and the four clauses an
 #    upgrading project is owed are each asserted by name: the claim succeeds, the failing checks come back
