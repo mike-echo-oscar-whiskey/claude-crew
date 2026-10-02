@@ -990,7 +990,51 @@ noac=$(conforming_task C5)
 sed -i 's|^- `#1 AC 2` — the first-line contract, refused and witnessed$|- `#1` — the first-line contract, refused and witnessed|' "$noac"
 run "$p" -- task create --story 5 --title T --role agentic-ai-engineer --body-file "$noac"
 refused "task create refuses a ## Proves that names no criterion" \
-  'refused: ## Proves names no criterion: it needs at least one "AC <n>" reference'
+  'refused: ## Proves bullet does not open with a criterion reference ("#<n> AC <m>"): - `#1` — the first-line'
+
+# 29a. The Proves check reads each bullet's opening, not the section's text. `AC <n>` anywhere in the
+#      section was enough, so a bullet that names no criterion but mentions one in prose passed — the live
+#      case is a task whose one bullet says it proves none of a story's criteria and cites them while saying
+#      so. A bullet now opens with the reference, backticked or bare; a task that proves nothing declares it
+#      as the section's one bullet, `none` and a reason, the way `test-free` licenses 0 RED tests.
+# proves_task <name> <bullet lines...> -> a conforming task whose ## Proves holds exactly these lines
+proves_task() {
+  local f; f=$(conforming_task "$1"); shift
+  printf '%s\n' "$@" > "$tmp/proves.lines"
+  awk -v lf="$tmp/proves.lines" '
+    $0 == "## Proves" {print; print ""; while ((getline l < lf) > 0) print l; print ""; skip = 1; next}
+    skip && /^## / {skip = 0}
+    !skip' "$f" > "$f.new" && mv "$f.new" "$f"
+  echo "$f"
+}
+nprose="task create refuses a ## Proves bullet that mentions a criterion without opening with one"
+pr=$(proves_task C5a '- the republish the story already covers, which `#1 AC 10` and `#1 AC 11` prove elsewhere')
+run "$p" -- task create --story 5 --title T --role agentic-ai-engineer --body-file "$pr"
+refused "$nprose" 'refused: ## Proves bullet does not open with a criterion reference ("#<n> AC <m>"): - the republish'
+nmixed="task create refuses a prose bullet beside a real criterion reference"
+pm=$(proves_task C5b '- `#1 AC 2` — the first-line contract' '- see also AC 3, which the next task proves')
+run "$p" -- task create --story 5 --title T --role agentic-ai-engineer --body-file "$pm"
+refused "$nmixed" 'refused: ## Proves bullet does not open with a criterion reference ("#<n> AC <m>"): - see also AC 3'
+nbare="task create accepts a criterion reference without backticks, and several bullets"
+pb=$(proves_task C5c '- #1 AC 2 — the first-line contract' '- `#1 AC 3`, `#1 AC 4` — the size line')
+run "$p" -- task create --story 5 --title T --role agentic-ai-engineer --body-file "$pb"
+created "$nbare" '- #1 AC 2 — the first-line contract'
+nnone="task create accepts a declared none with a reason, in the shape a live preparatory task uses"
+pn=$(proves_task C5d '- none of `#1 AC 1–12` — this task prepares the next one, which proves AC 10 and AC 11.')
+run "$p" -- task create --story 5 --title T --role agentic-ai-engineer --body-file "$pn"
+created "$nnone" '- none of `#1 AC 1–12`'
+nbarenone="task create refuses a none that gives no reason"
+pnr=$(proves_task C5e '- none')
+run "$p" -- task create --story 5 --title T --role agentic-ai-engineer --body-file "$pnr"
+refused "$nbarenone" 'refused: ## Proves declares "none" with no reason'
+nnoneplus="task create refuses a none beside a criterion reference"
+pnp=$(proves_task C5f '- `#1 AC 2` — the first-line contract' '- none — the rest is preparation')
+run "$p" -- task create --story 5 --title T --role agentic-ai-engineer --body-file "$pnp"
+refused "$nnoneplus" 'refused: ## Proves declares "none" beside a criterion'
+nnobullet="task create refuses a ## Proves of prose with no bullet"
+pnb=$(proves_task C5g 'This task proves #1 AC 2, as the story says.')
+run "$p" -- task create --story 5 --title T --role agentic-ai-engineer --body-file "$pnb"
+refused "$nnobullet" 'refused: ## Proves names no criterion'
 
 # 30. AC 5 — "one malformed body per check and per kind", for the placeholder check over a task. Case 5
 #     asserts it for `story` and the two kinds reach it down different paths: in `validate_task_body` the

@@ -3,6 +3,49 @@
 Per release: what changed, what to do, and what happens to a project that changes nothing. Entries
 are appended, never rewritten — an entry describes the release it names, not the current tree.
 
+## 0.8.3 — 2026-10-02
+
+**The release that reads a `## Proves` bullet by how it opens, and gives a task that proves nothing a
+declared way to say so.** The check asked whether the section contained `AC <n>` anywhere, so a bullet
+that proved no criterion passed by naming the criteria it did not prove: a preparatory task whose one
+bullet read "none of `#676 AC 1–12` — …" linted as conforming while saying the opposite. Every top-level
+bullet now opens with its reference, `<sigil><n> AC <m>`, backticked or bare; a task that proves nothing
+writes one bullet, `none` and a reason, the way `test-free` licenses `0 RED tests` and `Exception:`
+licenses the size cap.
+
+Patch, not minor, by the test the last six releases used: nothing new can be invoked, passed or filed.
+`task create` and `lint`, which share the validator, refuse bodies the template already said were wrong —
+its one example bullet opens with the reference — and the `none` form is accepted where the old check
+accepted the same text by accident, so it is a reading of an existing body, not a new capability. On the
+board this was cut against, `lint --all` reports the same items before and after.
+
+The payload moved in `plugins/crew/scripts/tracker.sh` and `plugins/crew/templates/item-task.md`;
+`tests/tracker.test.sh` rides along.
+
+### What changed
+
+- **A `## Proves` bullet is judged by its opening, not its mentions.** `check_proves` reads each
+  top-level bullet: one that does not open with `<sigil><n> AC <m>` is refused as
+  `refused: ## Proves bullet does not open with a criterion reference ("#<n> AC <m>"): <the bullet>`,
+  one line per bullet. A section with no bullet at all is refused as naming no criterion.
+- **`none` is the declared form for a task that proves no criterion.** It must be the section's only
+  bullet and carry a reason; a bare `none` and a `none` beside a reference are each refused by name.
+  `item-task.md` says so in one line under the example bullet.
+
+### What to do
+
+1. Install it: `claude plugin install crew@claude-crew`.
+2. **Run `scripts/tracker.sh lint --all` once.** A task whose `## Proves` bullets mention a criterion in
+   prose is reported now; rewrite each bullet to open with its reference, or, for a task that proves
+   nothing, replace the list with `- none — <why>`.
+
+### What happens if a project changes nothing
+
+1. **`lint` may report a task it passed yesterday**, for a `## Proves` bullet that does not open with a
+   reference, and the `/crew:status` conformance count moves by the same number.
+2. **A `task create` that used to succeed can be refused** for the same shape, exit 1, nothing written.
+   A body in the template's form is accepted as before.
+
 ## 0.8.2 — 2026-10-01
 
 **The release that makes the placeholder scan a parser instead of a pair of regular expressions, and

@@ -38,6 +38,9 @@ needed. This is the section that may name technology; everything above it may no
 
 - `<story-ref> AC <n>` — <the half of that criterion this task proves, when it is a half>
 
+<Every bullet opens with its reference. A task that proves no criterion replaces the list with
+one bullet, "none — <why>".>
+
 ## Files
 
 - `path` — <what changes there>

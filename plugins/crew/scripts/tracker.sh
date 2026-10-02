@@ -237,6 +237,34 @@ story_of_body() { # <task body on stdin> -> its story number, or "" when the fir
   sed -nE "1s/^Story:[[:space:]]*$SIGIL?([0-9]+)[[:space:]]*\$/\\1/p"
 }
 
+check_proves() { # <body file> <## Proves heading>
+  # A bullet is judged by how it opens, never by what it mentions: "AC <n>" anywhere in the section let a
+  # bullet that proves nothing pass by citing the criteria it does not prove. Each top-level bullet opens
+  # with "<sigil><n> AC <m>", backticked or bare; a task that proves no criterion says so as the section's
+  # only bullet, "none" and a reason — declared, the way "test-free" licenses 0 RED tests.
+  local f=$1 h=$2 line rest n=0 nones=0
+  while IFS= read -r line; do
+    [[ $line =~ ^[-*][[:space:]]+(.*)$ ]] || continue
+    rest=${BASH_REMATCH[1]}; n=$((n + 1))
+    rest=${rest#\`}
+    if [[ $rest =~ ^[Nn][Oo][Nn][Ee]([^[:alnum:]_]|$) ]]; then
+      nones=$((nones + 1))
+      if [[ ! ${rest:4} =~ [[:alnum:]] ]]; then
+        refuse "$h declares \"none\" with no reason: write \"none — <why this task proves no criterion>\""
+      fi
+      continue
+    fi
+    if [[ $rest != "$SIGIL"* ]] || [[ ! ${rest#"$SIGIL"} =~ ^[0-9]+[[:space:]]+AC[[:space:]]+[0-9]+ ]]; then
+      refuse "$h bullet does not open with a criterion reference (\"$SIGIL<n> AC <m>\"): $line"
+    fi
+  done < <(section_body "$f" "$h")
+  if [ "$n" -eq 0 ]; then
+    refuse "$h names no criterion: each bullet opens with \"$SIGIL<n> AC <m>\", or its one bullet is \"none — <reason>\""
+  elif [ "$nones" -gt 0 ] && [ "$n" -gt 1 ]; then
+    refuse "$h declares \"none\" beside a criterion: a task proves criteria or declares none, as its one bullet"
+  fi
+}
+
 validate_task_body() { # <assembled body file> <story as given>
   local f=$1 num=${2//[!0-9]/} first key size h="" t="" sec nf nt ph line
   REFUSALS=()
@@ -290,9 +318,7 @@ validate_task_body() { # <assembled body file> <story as given>
       refuse "$tests_h lists $nt numbered tests, Size: says $t"
     fi
   fi
-  if [ -n "$proves_h" ] && ! section_body "$f" "$proves_h" | grep -aqE 'AC[[:space:]]+[0-9]+'; then
-    refuse "$proves_h names no criterion: it needs at least one \"AC <n>\" reference"
-  fi
+  if [ -n "$proves_h" ]; then check_proves "$f" "$proves_h"; fi
 
   check_placeholders "$f"
   verdict
