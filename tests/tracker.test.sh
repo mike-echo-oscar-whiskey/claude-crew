@@ -1438,5 +1438,97 @@ sed 's/^## Likely files$/## Files/' "$old51" > "$tmp/pres-head.md"
 run "$p" -- preserved "$old51" "$tmp/pres-head.md"
 reported "$n55" 1 '## Likely files' '1 not found' && pass "$n55"
 
+# 56. 2026-10-03 refinement — `status` rolled a task up under a story when its body merely BEGAN with the
+#     reference, so story #3 counted the tasks of #359 and #376. The roll-up reads the story the way `next`
+#     and `lint` do, through `story_of_body`: the first line is the reference and nothing else. The `#3 ·`
+#     body is the contract's other half — a first line that is not a reference rolls up under no story.
+n56="status rolls a task up under its own story only, never under a story whose number prefixes it"
+for s in 3 359; do printf 'Story: #%s\nBlocked by: none\n' "$s" > "$tmp/ru-$s.md"; done
+printf 'Story: #3 · design notes\nBlocked by: none\n' > "$tmp/ru-trail.md"
+printf 'Story: #3\r\nBlocked by: none\r\n' > "$tmp/ru-crlf.md"
+list_json task "71:$tmp/ru-3.md" "72:$tmp/ru-359.md" "73:$tmp/ru-trail.md" "74:$tmp/ru-crlf.md"
+list_json story "3:$good"
+run "$p" -- status
+if reported "$n56" 0 '#3 ' 'tasks 0/2 done' '#71 [open]' '#74 [open]'; then
+  case "$out" in
+    *'#72 '*|*'#73 '*) fail "$n56" "a task of another story was rolled up under #3: $out" ;;
+    *) pass "$n56" ;;
+  esac
+fi
+
+# 57. 2026-10-03 refinement — a span holding nothing but `<…>` tokens is unwrapped so a template stub inside
+#     backticks is still reported (#41), and that unwrap also reported every element a body names in code:
+#     `<img>`, `<div>`, a custom element such as `<vonk-slide-over>`. A span made only of element tags is
+#     code; the first arm accepts four of them. The second arm is the teeth on the other side: every span
+#     the shipped templates write holding nothing but stubs is still reported, so an element list that
+#     grows to swallow a stub's name fails here rather than in a body nobody refuses.
+n57="bug create accepts a span that names an HTML or custom element"
+eph=$(bug_body C57)
+sed -i 's|^Claiming that item exits 3 and names no failing check\.$|Claiming that item exits 3 and names no failing check. The panel is a `<vonk-slide-over>` holding a `<div>`, an `<img>` and an `<a href="x">`, closed by `</div>`.|' "$eph"
+run "$p" -- bug create --title 'the probe' --body-file "$eph"
+plain_created "$n57" bug '`<vonk-slide-over>`' && pass "$n57"
+n57b="every span the templates write holding nothing but stubs is still reported"
+sph57=$(bug_body C57b)
+mapfile -t spans57 < <(cat "$crew"/templates/item-*.md | grep -aoE '`(<[^<>`]*>)+`' | sort -u)
+printf '%s\n' "${spans57[@]}" | sed 's/^/Quoted: /' >> "$sph57"
+run "$p" -- bug create --title 'the probe' --body-file "$sph57"
+want57=(); for s in "${spans57[@]}"; do
+  while IFS= read -r t; do want57+=("refused: unfilled template placeholder — $t"); done < <(grep -oE '<[^<>]*>' <<<"$s")
+done
+if [ ${#spans57[@]} -lt 3 ]; then fail "$n57b" "expected the templates to write at least three stub spans, found: ${spans57[*]}"
+else refused "$n57b" "${want57[@]}"; fi
+
+# 58. 2026-10-03 refinement — a story may number its criteria in lettered groups (A1..A13, B1..B6), and its
+#     tasks cite them `#47 AC A5`. The Proves check took digits only, so every such task failed lint. One id
+#     shape, an optional letter and digits, is read by the Proves check, the criteria run and the Proof map
+#     rows alike; `AC` stays mandatory, so `#47 A5` is still refused.
+n58="task create accepts a criterion reference with a lettered id"
+pl=$(proves_task C58 '- `#1 AC A2` — the lettered half' '- #1 AC B10 — bare')
+run "$p" -- task create --story 5 --title T --role agentic-ai-engineer --body-file "$pl"
+created "$n58" '- `#1 AC A2` — the lettered half'
+n58b="task create still refuses a lettered reference without AC"
+pla=$(proves_task C58b '- `#1 A2` — no AC token')
+run "$p" -- task create --story 5 --title T --role agentic-ai-engineer --body-file "$pla"
+refused "$n58b" 'refused: ## Proves bullet does not open with a criterion reference ("#<n> AC <m>"): - `#1 A2`'
+# lettered_story <name> <ids for ## Acceptance> <ids for ## Proof map> -> a conforming story with those ids
+lettered_story() {
+  local f; f=$(conforming_story "$1")
+  awk -v ac="$2" -v pm="$3" '
+    /^## Acceptance criteria$/ { print; print ""; n = split(ac, a, " "); for (i = 1; i <= n; i++) print a[i] ". Given a case, when it runs, then it holds."; print ""; skip = 1; next }
+    /^## Proof map$/ { print; print ""; print "| AC | Task | Proven by | ✓ |"; print "|---|---|---|---|"; n = split(pm, a, " "); for (i = 1; i <= n; i++) print "| " a[i] " | | | |"; print ""; skip = 1; next }
+    skip && /^## / { skip = 0 }
+    !skip' "$f" > "$f.new" && mv "$f.new" "$f"
+  echo "$f"
+}
+n58c="story create accepts lettered criteria that run 1..n within each letter, one Proof map row each"
+run "$p" -- story create --title T --body-file "$(lettered_story C58c 'A1 A2 B1' 'A1 A2 B1')"
+created "$n58c" '| B1 |'
+n58d="story create refuses a gap within a letter and a lettered criterion with no Proof map row"
+run "$p" -- story create --title T --body-file "$(lettered_story C58d 'A1 A3 B1' 'A1 A3')"
+refused "$n58d" 'expected A2, got A3' 'has 0 rows for criterion B1'
+
+# 59. 2026-10-03 refinement — an item closed outside `release --to done` (a PR's "Closes", a hand close)
+#     keeps its lane label, and 96 had piled up unseen. `status` names them as a warning on stderr, one line
+#     per lane, and writes nothing; an open item carrying the same label is ordinary and is not named.
+n59="status warns about closed items still carrying a lane label, and writes nothing"
+list_json task "81:$good"; list_json story "1:$good"
+jq -n '[{number:91,state:"CLOSED",labels:[{name:"in-progress"}]},{number:92,state:"CLOSED",labels:[{name:"in-progress"}]}]' > "$lists/in-progress.json"
+jq -n '[{number:93,state:"CLOSED",labels:[{name:"in-review"}]}]' > "$lists/in-review.json"
+run_split "$p" -- status
+err59=$(cat "$errfile")
+if [ "$rc" -ne 0 ]; then fail "$n59" "expected exit 0, got $rc; stderr: $err59"
+else
+  case "$err59" in
+    *'closed but still labelled in-progress: #91, #92'*'closed but still labelled in-review: #93'*)
+      if grep -q 'labelled blocked' <<<"$err59"; then fail "$n59" "a lane with no closed item was named: $err59"
+      elif grep -q 'still labelled' <<<"$out"; then fail "$n59" "the warning reached stdout, which /crew:status presents as the board: $out"
+      elif ! grep -aq -- '--state closed' "$ghlog"; then fail "$n59" "the lane fetch did not ask for closed items: $(cat "$ghlog")"
+      elif wrote_board; then fail "$n59" "status wrote to the board: $(grep -aE 'issue (edit|comment|create|close)|label create' "$ghlog" | head -1)"
+      else pass "$n59"; fi ;;
+    *) fail "$n59" "expected one warning per lane naming #91, #92 and #93, got: $err59" ;;
+  esac
+fi
+rm -f "$lists/in-progress.json" "$lists/in-review.json"
+
 if [ "$fails" -eq 0 ]; then echo "PASS"; exit 0; fi
 echo "FAIL ($fails)"; exit 1

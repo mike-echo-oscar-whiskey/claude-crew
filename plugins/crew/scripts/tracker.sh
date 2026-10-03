@@ -11,7 +11,7 @@
 #   tracker.sh lint [<n> | --all | --kind story|task|bug|tech-debt] [--quiet]   (read-only conformance report)
 #   tracker.sh release N --to in-review|blocked|open|done   (done: lane labels off, item closed, assignee kept)
 #   tracker.sh next                   (claimable tasks: open, unassigned, not in-progress/in-review/blocked, blockers closed)
-#   tracker.sh status                 (stories with task progress)
+#   tracker.sh status                 (stories with task progress; warns on closed items still wearing a lane label)
 #   tracker.sh show N                 (issue + comments)
 #   tracker.sh comment N --body-file F
 #   tracker.sh conformed N            (read-only: 0 conformed since the last body edit, 1 not, 2 cannot decide; one line)
@@ -42,6 +42,9 @@ case "$GENERATED" in -) GENERATED="" ;; esac
 # The item kinds, in the order `lint --all` walks them: one `issue list` call each, never a fetch per
 # item. A kind is a label, so `lint` judges an item against the template for the kind it carries.
 KINDS=(story task bug tech-debt)
+
+# The lane labels: where a claimed item stands. `release --to done` takes every one off as it closes the item.
+LANES=(in-progress in-review blocked)
 
 ROLES=(product-owner architect frontend-engineer backend-engineer integration-engineer event-sourcing-engineer genai-engineer agentic-ai-engineer multitenancy-engineer commercial-analyst qa-engineer security-engineer cloud-engineer ux-designer privacy-and-compliance technical-writer)
 
@@ -130,11 +133,18 @@ body_placeholders() { # <file> -> the template stubs still in the body, one per 
   # template shipped inside backticks rather than content a role wrote, and is unwrapped so the scan sees
   # it. `item-bug.md` writes its role as one such token and `item-task.md` its design path as two side by
   # side, which is why those were the two stubs this scan could never report (#41, #42).
+  #   A span made of nothing but ELEMENT tags is code all the same, and is dropped: `<img>`, `<div>`, a
+  # custom element such as `<vonk-slide-over>`, attributes or not. A tag is a lowercase name that is either a
+  # standard HTML element or carries a hyphen, the one thing the HTML standard requires of a custom element.
+  # No stub a shipped template writes alone in a span has either shape — `<crew role>`, `<slug>`, `<Test>`,
+  # `<profile:designs>` — and the witness reads those spans off the templates, so a name added here that
+  # swallows one fails it. The cost: a template stub spelled like an element (`<title>`, `<story-ref>`)
+  # would go unreported inside a span of its own; outside a span it is read as before.
   #   The cost, unchanged in kind and slightly wider in reach: a body meaning a literal backticked
   # `<token>` in prose is refused as a stub, and now also one meaning two of them side by side. Such a
   # body writes them in a fence, where nothing is read, or puts another word beside them in the span.
   awk '
-    function stubs_only(s) { return s ~ /^(<[^<>]*>)+$/ }
+    function stubs_only(s) { return s ~ /^(<[^<>]*>)+$/ && s !~ ("^(" TAG ")+$") }
     function closer(s, from, want,   n, i, k) {   # the start of the next run of exactly `want`, or 0
       n = length(s); i = from
       while (i <= n) {
@@ -160,7 +170,17 @@ body_placeholders() { # <file> -> the template stubs still in the body, one per 
     }
     function flush() { if (para != "") { print despan(para); para = "" } }
     function take(line) { if (line ~ /^[[:space:]]*$/) flush(); else para = (para == "" ? line : para SEP line) }
-    BEGIN { SEP = sprintf("%c", 1) }
+    BEGIN {
+      SEP = sprintf("%c", 1)
+      HTML = "a|abbr|address|area|article|aside|audio|b|base|bdi|bdo|blockquote|body|br|button|canvas|caption|" \
+             "cite|code|col|colgroup|data|datalist|dd|del|details|dfn|dialog|div|dl|dt|em|embed|fieldset|" \
+             "figcaption|figure|footer|form|h[1-6]|head|header|hgroup|hr|html|i|iframe|img|input|ins|kbd|label|" \
+             "legend|li|link|main|map|mark|math|menu|meta|meter|nav|noscript|object|ol|optgroup|option|output|p|" \
+             "picture|pre|progress|q|rp|rt|ruby|s|samp|script|search|section|select|slot|small|source|span|" \
+             "strong|style|sub|summary|sup|svg|table|tbody|td|template|textarea|tfoot|th|thead|time|title|tr|" \
+             "track|u|ul|var|video|wbr"
+      TAG = "</?(" HTML "|[a-z][a-z0-9]*-[a-z0-9-]*)([[:space:]][^<>]*)?/?>"
+    }
     /^ {0,3}```/ { if (f) { f = 0; held = "" } else { f = 1 }; next }
     f     { held = held $0 "\n"; next }
           { take($0) }
@@ -242,6 +262,10 @@ story_of_body() { # <task body on stdin> -> its story number, or "" when the fir
   sed -nE "1s/^Story:[[:space:]]*$SIGIL?([0-9]+)[[:space:]]*\$/\\1/p"
 }
 
+# A criterion's id, wherever one is read — the Proves bullets, the story's criteria and its Proof map rows:
+# digits, or one letter and digits for a story that numbers its criteria in groups (A1..A13, B1..B6).
+CRITERION_ID='[A-Za-z]?[0-9]+'
+
 check_proves() { # <body file> <## Proves heading>
   # A bullet is judged by how it opens, never by what it mentions: "AC <n>" anywhere in the section let a
   # bullet that proves nothing pass by citing the criteria it does not prove. Each top-level bullet opens
@@ -259,7 +283,7 @@ check_proves() { # <body file> <## Proves heading>
       fi
       continue
     fi
-    if [[ $rest != "$SIGIL"* ]] || [[ ! ${rest#"$SIGIL"} =~ ^[0-9]+[[:space:]]+AC[[:space:]]+[0-9]+ ]]; then
+    if [[ $rest != "$SIGIL"* ]] || [[ ! ${rest#"$SIGIL"} =~ ^[0-9]+[[:space:]]+AC[[:space:]]+$CRITERION_ID ]]; then
       refuse "$h bullet does not open with a criterion reference (\"$SIGIL<n> AC <m>\"): $line"
     fi
   done < <(section_body "$f" "$h")
@@ -377,16 +401,16 @@ validate_story_body() { # <body file> [on-board]
     fi
   fi
 
-  local -a ids=()
+  local -a ids=(); local -A last_of=(); local g
   if [ -n "$ac_h" ]; then
-    mapfile -t ids < <(section_body "$f" "$ac_h" | sed -nE 's/^[[:space:]]*([0-9]+)\..*/\1/p')
-    want=1
-    for n in "${ids[@]+"${ids[@]}"}"; do
+    mapfile -t ids < <(section_body "$f" "$ac_h" | sed -nE "s/^[[:space:]]*($CRITERION_ID)\..*/\1/p")
+    for n in "${ids[@]+"${ids[@]}"}"; do   # each letter group runs 1..n on its own; bare digits are one group
+      g=${n%%[0-9]*}; want=$g$(( ${last_of[_$g]:-0} + 1 ))
       if [ "$n" != "$want" ]; then
         refuse "criterion ids must run 1..n with no gap and no duplicate — expected $want, got $n"
         break
       fi
-      want=$((want + 1))
+      last_of[_$g]=${want#"$g"}
     done
   fi
   if [ -n "$pm_h" ]; then
@@ -631,7 +655,7 @@ release() {
     done)
       local lanes; lanes=$("${GH[@]}" issue view "$n" --json labels -q '[.labels[].name]')
       local -a off=(); local l
-      for l in in-progress in-review blocked; do
+      for l in "${LANES[@]}"; do
         if jq -e --arg l "$l" 'index($l)' <<<"$lanes" >/dev/null; then off+=(--remove-label "$l"); fi
       done
       if [ ${#off[@]} -gt 0 ]; then "${GH[@]}" issue edit "$n" "${off[@]}" >/dev/null; fi
@@ -667,9 +691,15 @@ status() {
   local tasks stories
   tasks=$("${GH[@]}" issue list --label task --state all --limit "$BOARD_LIMIT" --json number,title,state,labels,assignees,body)
   stories=$("${GH[@]}" issue list --label story --state open --limit "$BOARD_LIMIT" --json number,title,labels)
+  # Each task's story is read once, by `story_of_body`, the parser `next` and `lint` use: a `startswith`
+  # on "Story: #3" also rolled up the tasks of #359 and #376 under story #3.
+  local all=$tasks
+  tasks=$(jq -c '.[]' <<<"$all" | while IFS= read -r row; do
+    jq -c --arg s "$(jq -r '.body // ""' <<<"$row" | story_of_body)" '. + {story: $s}' <<<"$row"
+  done | jq -s .)
   jq -r '.[] | "\(.number)\t\(.title)"' <<<"$stories" \
   | while IFS=$'\t' read -r sn st; do
-      sub=$(jq -c --arg s "Story: #$sn" '[.[] | select(.body | startswith($s))]' <<<"$tasks")
+      sub=$(jq -c --arg s "$sn" '[.[] | select(.story == $s)]' <<<"$tasks")
       total=$(jq 'length' <<<"$sub"); done_=$(jq '[.[] | select(.state=="CLOSED")] | length' <<<"$sub")
       prog=$(jq '[.[] | select([.labels[].name] | index("in-progress"))] | length' <<<"$sub")
       rev=$(jq '[.[] | select([.labels[].name] | index("in-review"))] | length' <<<"$sub")
@@ -678,8 +708,21 @@ status() {
       jq -r '.[] | "    #\(.number) [\(.state|ascii_downcase)] \([.labels[].name | select(startswith("role:"))][0] // "-") \(.title)\(if (.assignees|length)>0 then " @" + (.assignees[0].login) else "" end)"' <<<"$sub"
     done
   # Two fetches, each able to fill on its own, so each is judged on its own and named for what it costs.
-  board_saturated "$(jq 'length' <<<"$tasks")" task-rollup "every story's task counts are a lower bound"
+  board_saturated "$(jq 'length' <<<"$all")" task-rollup "every story's task counts are a lower bound"
   board_saturated "$(jq 'length' <<<"$stories")" open-story "stories beyond it are absent from this board"
+  stale_lanes
+}
+
+stale_lanes() { # one stderr line per lane label still worn by closed items; reads only, never removes one
+  # An item closed outside `release --to done` — a PR's "Closes #n", a close by hand — keeps its lane label,
+  # and nothing on the board showed it. On stderr for the reason `board_saturated` is: stdout is the board.
+  local l rows nums
+  for l in "${LANES[@]}"; do
+    rows=$("${GH[@]}" issue list --label "$l" --state closed --limit "$BOARD_LIMIT" --json number)
+    nums=$(jq -r --arg s "$SIGIL" '[.[] | "\($s)\(.number)"] | join(", ")' <<<"$rows")
+    [ -z "$nums" ] || echo "warning: closed but still labelled $l: $nums" >&2
+    board_saturated "$(jq 'length' <<<"$rows")" "closed $l" "closed items beyond it still wearing $l are not named"
+  done
 }
 
 # `--comments` replaces the view with the comment stream rather than adding to it, so the title, the

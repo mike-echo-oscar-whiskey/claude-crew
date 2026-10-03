@@ -3,6 +3,32 @@
 Per release: what changed, what to do, and what happens to a project that changes nothing. Entries
 are appended, never rewritten — an entry describes the release it names, not the current tree.
 
+## 0.10.2 — 2026-10-03
+
+**A patch from a 241-item backlog refinement: four places where the tracker script misread a correct board.**
+The payload moved in `plugins/crew/scripts/tracker.sh` and `plugins/crew/skills/status/SKILL.md`;
+`tests/tracker.test.sh` rides along (cases 56–59).
+
+### What changed
+
+- **`status` rolls tasks up by the exact story reference.** It matched the first line by prefix, so story #3 also
+  counted every task of #3xx. It now reads the line with the one parser the rest of the script uses; a first
+  line such as `Story: #3 · …` rolls up under no story, as the header contract already said.
+- **A code span made only of element tags is code, not a placeholder.** `` `<vonk-slide-over>` `` or
+  `` `<img>` `` no longer fail `lint`. A span holding a stub (`<crew role>`, `<slug>`) is still unwrapped and
+  reported; a stub spelled like an element name and sitting alone in a span now goes unreported.
+- **Criterion ids may carry a letter.** `#47 AC A5` passes the Proves check; `AC` stays mandatory. A story's own
+  lettered criteria (A1..An, B1..Bn) are now numbered and checked per letter, together with its Proof map —
+  before this a lettered story passed with nothing checked.
+- **`status` warns about closed items still wearing a lane label**, one `warning:` line per lane on stderr.
+  Read-only; `release --to done` and the warning share one list of lanes.
+
+### What to do
+
+Run `tracker.sh status` and remove any lane label it reports on a closed item. Run `tracker.sh lint --all`: a
+story with lettered criteria may now report a gap or a Proof map row that was never checked before, and a task
+citing `#n A5` needs the `#n AC A5` form. A project that changes nothing keeps working.
+
 ## 0.10.1 — 2026-10-02
 
 **A patch: a task's header can no longer be stored twice.** `task create` writes `Story:` and `Blocked by:`
