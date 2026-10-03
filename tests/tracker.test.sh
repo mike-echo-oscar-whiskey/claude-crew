@@ -376,14 +376,16 @@ else
   refused "$n_nogen" 'refused: ## Files lists 2 files, Size: says 1'
 fi
 
-# 5. AC 5 — a story missing a section and carrying a live placeholder gets one line per check.
+# 5. AC 5 — a story missing a section and carrying a live placeholder gets one line per check. The stub
+#     left is the one `item-story.md` writes on its Decision: line: only a token a template writes is a stub
+#     (case 60), so an invented `<…>` would prove nothing here.
 s=$(conforming_story s5)
 awk '/^## Out of scope$/{skip = 1} /^## Proof map$/{skip = 0} !skip' "$s" \
-  | sed 's/^The design document for this release\./<other items, designs and provenance>/' > "$tmp/s5b.md"
+  | sed 's/^Decision: Kris, 2026-09-30, refuse at create and warn at claim\./Decision: <who, date, the sentence they settled>./' > "$tmp/s5b.md"
 run "$p" -- story create --title T --body-file "$tmp/s5b.md"
 refused "story create refuses a missing section and a surviving placeholder, one line each" \
   'refused: section "## Out of scope" is missing' \
-  'refused: unfilled template placeholder' '<other items, designs and provenance>'
+  'refused: unfilled template placeholder' '<who, date, the sentence they settled>'
 
 # 5b. AC 5 — the criterion ids run 1..n, and the Proof map carries exactly one row per id. Renumbering
 #     the second criterion to 3 breaks both at once, so both lines must come back.
@@ -1183,9 +1185,9 @@ plain_created "$nfence" bug 'Role: `<crew role>` · design: <none, or the doc>' 
 #     refused. Case 35 cannot see this: its fence closes, and a closed fence takes the `held = ""` arm.
 nheld="body_placeholders still reports a stub below a fence whose closer is missing"
 uph=$(bug_body C12)
-sed -i 's|^Claiming that item exits 3 and names no failing check\.$|Claiming that item exits 3 and names no failing check, and the report quotes the block whose closer its author forgot:\n\n```\nthe quoted line, under which the closer never came\n\n<an unfilled stub the fence never closed over>|' "$uph"
+sed -i 's|^Claiming that item exits 3 and names no failing check\.$|Claiming that item exits 3 and names no failing check, and the report quotes the block whose closer its author forgot:\n\n```\nthe quoted line, under which the closer never came\n\nfound <where and when>|' "$uph"
 run "$p" -- bug create --title 'the probe' --body-file "$uph"
-refused "$nheld" 'refused: unfilled template placeholder — <an unfilled stub the fence never closed over>'
+refused "$nheld" 'refused: unfilled template placeholder — <where and when>'
 
 # 37. #42 — the hole #41 left open, and the reason the strip stopped being a regular expression: two stray
 #     backticks in ordinary prose paired with each other, and everything between them — an unfilled stub
@@ -1196,9 +1198,9 @@ refused "$nheld" 'refused: unfilled template placeholder — <an unfilled stub t
 #     with it, so the deletion lands on prose and the body is accepted either way.
 nstray="body_placeholders reports a stub standing between two stray backticks in prose"
 yph=$(bug_body C13)
-sed -i 's|^Claiming that item exits 3 and names no failing check\.$|Claiming that item exits 3 and names no failing check.\n\nA lone ` backtick stands in this sentence.\n\n<an unfilled stub between the two>\n\nAnother lone ` stands in this one.|' "$yph"
+sed -i 's|^Claiming that item exits 3 and names no failing check\.$|Claiming that item exits 3 and names no failing check.\n\nA lone ` backtick stands in this sentence.\n\nMerged by <profile:merge-authority>.\n\nAnother lone ` stands in this one.|' "$yph"
 run "$p" -- bug create --title 'the probe' --body-file "$yph"
-refused "$nstray" 'refused: unfilled template placeholder — <an unfilled stub between the two>'
+refused "$nstray" 'refused: unfilled template placeholder — <profile:merge-authority>'
 
 # 38. #42 — the same class as case 35 one indent in. A fence is how a body quotes a stub verbatim, and a
 #     fence inside a list item is still a fence: matching the opener at column 0 only left an indented one
@@ -1238,9 +1240,9 @@ refused "$ntwo" 'refused: unfilled template placeholder — <profile:designs>' \
 #     equal-length rule pairs with it and this case would witness nothing.
 nrun="body_placeholders pairs a backtick run only with a run of its own length"
 rrph=$(bug_body C16)
-sed -i 's|^Claiming that item exits 3 and names no failing check\.$|Claiming that item exits 3 and names no failing check.\n\nA lone ` backtick stands in this sentence, the stub <an unfilled stub past the stray> stands after it, and the template line reads ``Role: <crew role>`` where only a double span can hold it.|' "$rrph"
+sed -i 's|^Claiming that item exits 3 and names no failing check\.$|Claiming that item exits 3 and names no failing check.\n\nA lone ` backtick stands in this sentence, the stub <none, or the doc> stands after it, and the template line reads ``Role: <crew role>`` where only a double span can hold it.|' "$rrph"
 run "$p" -- bug create --title 'the probe' --body-file "$rrph"
-refused "$nrun" 'refused: unfilled template placeholder — <an unfilled stub past the stray>'
+refused "$nrun" 'refused: unfilled template placeholder — <none, or the doc>'
 
 # 41. #42 — the cost of letting the fence opener accept any indentation. Case 38 needs an indented fence to
 #     stay a fence, and the rule that bought it matched `[[:space:]]*`, which is wider than a fence is:
@@ -1252,9 +1254,9 @@ refused "$nrun" 'refused: unfilled template placeholder — <an unfilled stub pa
 #     unaffected; a leading tab falls out for free, since a tab is four columns and matches no space.
 nwide="body_placeholders reports a stub between two markers indented past a fence's three spaces"
 wph=$(bug_body C17)
-sed -i 's|^Claiming that item exits 3 and names no failing check\.$|Claiming that item exits 3 and names no failing check, and the lines it quotes are indented four spaces rather than fenced:\n\n    ```\n\nunder which the report still reads:\n\n<an unfilled stub between two four-space markers>\n\n    ```|' "$wph"
+sed -i 's|^Claiming that item exits 3 and names no failing check\.$|Claiming that item exits 3 and names no failing check, and the lines it quotes are indented four spaces rather than fenced:\n\n    ```\n\nunder which the report still reads:\n\n- <the specific observation that proves it on the deploy target, when the bug is only visible there>\n\n    ```|' "$wph"
 run "$p" -- bug create --title 'the probe' --body-file "$wph"
-refused "$nwide" 'refused: unfilled template placeholder — <an unfilled stub between two four-space markers>'
+refused "$nwide" 'refused: unfilled template placeholder — <the specific observation that proves it on the deploy target, when the bug is only visible there>'
 
 # 42. #42 — the index advance that resumes the scan after a closed span, which no case above could see. A
 #     closed span ends at a run of its own length, so the scan resumes past the WHOLE closing run, not one
@@ -1265,9 +1267,9 @@ refused "$nwide" 'refused: unfilled template placeholder — <an unfilled stub b
 #     leftover backtick finds no closer and stays literal, and the stub above it is reported either way.
 nadv="body_placeholders resumes the scan past the whole closing run of a span"
 aph=$(bug_body C18)
-sed -i 's|^Claiming that item exits 3 and names no failing check\.$|Claiming that item exits 3 and names no failing check. The template line reads ``Role: <crew role>`` where only a double span can hold it, the stub <an unfilled stub past the double span> stands after it, and `the filled role` closes the sentence.|' "$aph"
+sed -i 's|^Claiming that item exits 3 and names no failing check\.$|Claiming that item exits 3 and names no failing check. The template line reads ``Role: <crew role>`` where only a double span can hold it, the stub <what changes there> stands after it, and `the filled role` closes the sentence.|' "$aph"
 run "$p" -- bug create --title 'the probe' --body-file "$aph"
-refused "$nadv" 'refused: unfilled template placeholder — <an unfilled stub past the double span>'
+refused "$nadv" 'refused: unfilled template placeholder — <what changes there>'
 
 # 43. #42 — the identity of the character that joins a paragraph's lines, which every case above leaves
 #     free. Joining with a space would read naturally, and that is exactly what breaks: the outer grep
@@ -1529,6 +1531,56 @@ else
   esac
 fi
 rm -f "$lists/in-progress.json" "$lists/in-review.json"
+
+# 60. 2026-10-03 refinement — the scan refused every `<…>` it read, so seven open items failed lint on prose:
+#     `<datum>`, `<tenant>`, `<member>`, `<remarks>`, `<=>`, `<knowledge>`, `<model>`, and one task body on
+#     the `` `<input|select|textarea>` `` it named in a span. A token is a stub only when a shipped item
+#     template writes it, read off the resolved templates at runtime, so the first two arms accept bodies
+#     made of words no template uses. The third arm is the teeth: every stub a shipped template writes on
+#     one line — outside a span or alone in one, and outside the template's own `<!-- -->` note — is still
+#     refused when a body keeps it, so a vocabulary that reads too little fails here. The fourth keeps
+#     `<!--` refused on its own: it is the template's note, not a word, and no template writes it as a stub.
+n60="bug create accepts angle-bracket prose no template writes"
+pph=$(bug_body C60)
+sed -i 's|^Claiming that item exits 3 and names no failing check\.$|Claiming that item exits 3 and names no failing check. The row carries a <datum> per <tenant>, and <=> is how the diff marks an unchanged <member>.|' "$pph"
+run "$p" -- bug create --title 'the probe' --body-file "$pph"
+plain_created "$n60" bug 'a <datum> per <tenant>' && pass "$n60"
+n60b="task create accepts a span holding a token no template writes"
+sph60=$(conforming_task C60b)
+sed -i 's|^Validate the assembled body in task_create before the create call\.$|Validate the assembled body in task_create before the create call, for every `<input\|select\|textarea>` the form renders.|' "$sph60"
+run "$p" -- task create --story 5 --title T --role agentic-ai-engineer --body-file "$sph60"
+created "$n60b" '`<input|select|textarea>`'
+# template_stubs_of <kind> -> the stubs its shipped template writes on one line: the <!-- --> note dropped,
+# a span made only of stubs unwrapped, every other span dropped, as the scan reads them.
+template_stubs_of() {
+  sed '/<!--/,/-->/d' "$crew/templates/item-$1.md" \
+    | sed -E 's/`((<[^<>`]*>)+)`/\1/g; s/`[^`]*`//g' \
+    | grep -aoE '<[^<>[:space:]/][^<>]*>' | sort -u
+}
+n60c="every stub a shipped template writes on one line is still refused when a body keeps it"
+stubs_ok=1
+for kind in story task bug tech-debt; do
+  case "$kind" in
+    story) body60=$(conforming_story "C60c-$kind"); cmd60=(story create --title T) ;;
+    task)  body60=$(conforming_task "C60c-$kind"); cmd60=(task create --story 5 --title T --role agentic-ai-engineer) ;;
+    bug)   body60=$(bug_body "C60c-$kind"); cmd60=(bug create --title T) ;;
+    *)     body60=$(tech_debt_body "C60c-$kind"); cmd60=(tech-debt create --title T) ;;
+  esac
+  template_stubs_of "$kind" > "$tmp/stubs60-$kind.txt"
+  if [ "$(wc -l < "$tmp/stubs60-$kind.txt")" -lt 2 ]; then
+    fail "$n60c" "expected item-$kind.md to write at least two one-line stubs, found: $(cat "$tmp/stubs60-$kind.txt")"; stubs_ok=0; continue
+  fi
+  sed -i "/^## TL;DR\$/r $tmp/stubs60-$kind.txt" "$body60"
+  want60=(); while IFS= read -r t; do want60+=("refused: unfilled template placeholder — $t"); done < "$tmp/stubs60-$kind.txt"
+  run "$p" -- "${cmd60[@]}" --body-file "$body60"
+  refused_q "$n60c ($kind)" "${want60[@]}" || stubs_ok=0
+done
+if [ "$stubs_ok" = 1 ]; then pass "$n60c"; fi
+n60d="bug create still refuses a body keeping the template's own <!-- --> note"
+nph=$(bug_body C60d)
+sed -i 's|^Claiming that item exits 3 and names no failing check\.$|Claiming that item exits 3 and names no failing check.\n\n<!-- Bug body. Read at runtime by the crew. -->|' "$nph"
+run "$p" -- bug create --title 'the probe' --body-file "$nph"
+refused "$n60d" 'refused: unfilled template placeholder — <!--'
 
 if [ "$fails" -eq 0 ]; then echo "PASS"; exit 0; fi
 echo "FAIL ($fails)"; exit 1

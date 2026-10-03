@@ -3,6 +3,34 @@
 Per release: what changed, what to do, and what happens to a project that changes nothing. Entries
 are appended, never rewritten — an entry describes the release it names, not the current tree.
 
+## 0.10.3 — 2026-10-03
+
+**A patch: a `<…>` is an unfilled placeholder only when a shipped item template writes it.** The scan refused
+every angle-bracket token outside a fence, so seven open items on one board failed `lint` on prose — `<datum>`,
+`<tenant>`, `<member>`, `<remarks>`, `<=>`, `<knowledge>`, `<model>` — and a task on the `` `<input|select|textarea>` ``
+it named in a span. The payload moved in `plugins/crew/scripts/tracker.sh`; `tests/tracker.test.sh` rides along
+(case 60; cases 5, 36, 37, 40, 41 and 42 now leave a stub a template writes rather than one invented for the case).
+
+### What changed
+
+- **The stub vocabulary is the templates'.** `body_placeholders` reads every `<…>` the resolved item templates
+  write — the shipped `templates/item-*.md`, or the project's `.claude/crew/items/<kind>.md` where one exists —
+  at runtime, through the same scan a body goes through, and refuses a body's token only when it is one of them.
+  The templates' own `<!-- -->` notes do not count: a note instructs the author and is not a slot. Whitespace is
+  not part of a stub's identity, so a stub that wraps where the template did not is still refused.
+- **`<!--` is still refused on its own**, whole note or bare opener: a body carrying it kept the template's note.
+- **Everything #41 and #42 fixed holds.** A span of nothing but stubs is unwrapped and reported, a fence quotes,
+  a stray backtick is prose, a span of element tags is code.
+- **The cost.** A template's word used as a word is still a stub — `<n>`, `<H>`, `<G>`, `<T>`, `<state>`, `<act>`,
+  `<reason>`, `<why>`, `<slug>`, `<Test>`, `<Group>` — outside a fence, bare or alone in a span. A body meaning
+  one literally writes it in a fence or puts another word beside it in the span.
+
+### What to do
+
+Nothing. Run `tracker.sh lint --all`: an item that failed on prose tokens alone now conforms. A project that
+overrides an item template contributes that template's stubs automatically. A project that changes nothing keeps
+working.
+
 ## 0.10.2 — 2026-10-03
 
 **A patch from a 241-item backlog refinement: four places where the tracker script misread a correct board.**

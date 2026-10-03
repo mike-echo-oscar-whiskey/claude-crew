@@ -109,7 +109,8 @@ body_is_text() { # <file> -> false when the body carries a NUL byte
 section_body() { awk -v h="$2" '$0 == h {f = 1; next} /^## /{f = 0} f' "$1"; }
 section_has_text() { [ -n "$(section_body "$1" "$2" | tr -d '[:space:]')" ]; }
 
-body_placeholders() { # <file> -> the template stubs still in the body, one per line
+scan_tokens() { # stdin -> every `<…>` token the scan reads, one per line, a wrapped token's line break shown as a space
+  # This is the reader; `body_placeholders` below decides which of what it reads is a stub.
   # One awk pass, three states, and no regular expression that pairs backticks — pairing by regex is what
   # made two stray backticks delete every stub between them (#42) and what made a fence's three backticks
   # expose the lines it was quoting (#41).
@@ -140,9 +141,6 @@ body_placeholders() { # <file> -> the template stubs still in the body, one per 
   # `<profile:designs>` — and the witness reads those spans off the templates, so a name added here that
   # swallows one fails it. The cost: a template stub spelled like an element (`<title>`, `<story-ref>`)
   # would go unreported inside a span of its own; outside a span it is read as before.
-  #   The cost, unchanged in kind and slightly wider in reach: a body meaning a literal backticked
-  # `<token>` in prose is refused as a stub, and now also one meaning two of them side by side. Such a
-  # body writes them in a fence, where nothing is read, or puts another word beside them in the span.
   awk '
     function stubs_only(s) { return s ~ /^(<[^<>]*>)+$/ && s !~ ("^(" TAG ")+$") }
     function closer(s, from, want,   n, i, k) {   # the start of the next run of exactly `want`, or 0
@@ -185,9 +183,57 @@ body_placeholders() { # <file> -> the template stubs still in the body, one per 
     f     { held = held $0 "\n"; next }
           { take($0) }
     END   { flush(); n = split(held, lines, "\n"); for (i = 1; i <= n; i++) take(lines[i]); flush() }
-  ' "$1" \
+  ' \
     | { grep -aoE '<!--|<[^<>[:space:]/][^<>]*>' || true; } \
     | { grep -avE '^<https?:' || true; } | tr '\001' ' ' | sort -u
+}
+
+strip_html_comments() { # <file> -> the file with every <!-- … --> cut out, its lines kept in place
+  awk '{
+    line = $0; out = ""
+    while (1) {
+      if (inc) { i = index(line, "-->"); if (i == 0) { line = ""; break } line = substr(line, i + 3); inc = 0 }
+      i = index(line, "<!--"); if (i == 0) { out = out line; break }
+      out = out substr(line, 1, i - 1); line = substr(line, i + 4); inc = 1
+    }
+    print out
+  }' "$1"
+}
+
+TEMPLATE_STUBS=""; TEMPLATE_STUBS_READ=0
+template_stubs() { # -> every stub the resolved item templates write, one per line — the scan's vocabulary
+  local kind t
+  if [ "$TEMPLATE_STUBS_READ" = 0 ]; then
+    for kind in "${KINDS[@]}"; do
+      t=$(item_template "$kind"); [ -f "$t" ] || continue
+      TEMPLATE_STUBS+=$(strip_html_comments "$t" | scan_tokens)$'\n'
+    done
+    TEMPLATE_STUBS_READ=1
+  fi
+  printf '%s' "$TEMPLATE_STUBS" | { grep -av '^$' || true; } | sort -u
+}
+
+body_placeholders() { # <file> -> the template stubs still in the body, one per line
+  # A `<…>` is a stub only if a shipped template writes it. The scan used to refuse every token it read, and
+  # seven open items on one board failed lint on words — `<datum>`, `<tenant>`, `<member>`, `<remarks>`, `<=>`,
+  # `<knowledge>`, `<model>`, none of them a slot a template asks a role to fill — and a task body on the
+  # `<input|select|textarea>` it named in a span, three elements the tag rule reads as none. The vocabulary
+  # is read off the resolved templates at runtime, every kind, through the very scan a body goes through, so a
+  # stub a template writes alone in a span is in it as the scan reads it from a body, and a kind a project
+  # overrides contributes the project's own words. Nothing is hardcoded: a template edit moves the rule with
+  # it, where a list here would lag the templates. The templates' own `<!-- -->` notes are left out — a note
+  # instructs the author and is not a slot, and `<type>(<scope>)` in the story's note are words a body may
+  # well use — while `<!--` stays refused on its own, note or bare opener, since a body carrying it kept the
+  # note. Whitespace is not part of a stub's identity: a stub that wraps where the template did not is still
+  # that stub, so the match strips it and the token is reported as the body wrote it.
+  #   The cost: a template's word used as a word. `<n>`, `<H>`, `<T>`, `<state>`, `<act>`, `<reason>`, `<why>`,
+  # `<slug>`, `<Test>` are stubs wherever they stand outside a fence, backticked alone or bare, and a body
+  # meaning one literally writes it in a fence or puts another word beside it in the span. Every other `<…>`
+  # is prose, and is read as prose.
+  scan_tokens < "$1" | VOCAB="$(template_stubs)" awk '
+    function key(s) { gsub(/[[:space:]]/, "", s); return s }
+    BEGIN { n = split(ENVIRON["VOCAB"], v, "\n"); for (i = 1; i <= n; i++) if (v[i] != "") stub[key(v[i])] = 1 }
+    /^<!--/ || (key($0) in stub)'
 }
 
 UNPATHED=()
